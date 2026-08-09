@@ -6,6 +6,7 @@ import express, {
   type Response,
 } from "express";
 import authRoutes from "./routes/auth.routes";
+import categoryRoutes from "./routes/category.routes";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({

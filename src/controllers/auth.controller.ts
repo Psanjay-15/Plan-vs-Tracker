@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { NextFunction, Request, Response } from "express";
+import Category from "../models/Category";
 import User from "../models/User";
 import {
   clearAuthCookie,
@@ -8,6 +9,7 @@ import {
 } from "../utils/authToken";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEFAULT_CATEGORIES = ["Marketing", "Payroll", "Tools"];
 
 const publicUser = (user: {
   _id: unknown;
@@ -70,6 +72,19 @@ export const signup = async (
       email: normalizedEmail,
       password: hashedPassword,
     });
+
+    try {
+      await Category.insertMany(
+        DEFAULT_CATEGORIES.map((categoryName) => ({
+          userId: user._id,
+          name: categoryName,
+          normalizedName: categoryName.toLocaleLowerCase("en-US"),
+        })),
+      );
+    } catch (error) {
+      await User.findByIdAndDelete(user._id);
+      throw error;
+    }
 
     const token = createAuthToken(String(user._id));
     setAuthCookie(res, token);
