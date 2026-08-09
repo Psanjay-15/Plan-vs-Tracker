@@ -2,9 +2,12 @@ import {
   Fragment,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
+import axios from "axios";
 import styled from "styled-components";
 import { AppIcon } from "../components/common/AppIcon";
 import { Button } from "../components/common/Button";
@@ -13,8 +16,9 @@ import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { PageHeader } from "../components/common/PageHeader";
 import { actualService } from "../services/actual.service";
 import { categoryService } from "../services/category.service";
-import type { Actual } from "../types/actual";
+import type { Actual, ActualCsvImportError } from "../types/actual";
 import type { Category } from "../types/category";
+import { downloadBlob, downloadTextFile } from "../utils/download";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
 
 const ErrorBanner = styled.div`
@@ -25,6 +29,64 @@ const ErrorBanner = styled.div`
   background: var(--color-danger-50);
   color: var(--color-danger-600);
   font-size: var(--font-size-sm);
+`;
+
+const SuccessBanner = styled.div`
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgb(18 116 74 / 24%);
+  border-radius: var(--radius-md);
+  background: #edf8f1;
+  color: #0f6a42;
+  font-size: var(--font-size-sm);
+`;
+
+const HeaderActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+
+  @media (max-width: 640px) {
+    width: 100%;
+
+    button {
+      flex: 1 1 auto;
+    }
+  }
+`;
+
+const HiddenFileInput = styled.input`
+  display: none;
+`;
+
+const ImportErrors = styled.ul`
+  margin: var(--space-3) 0 0;
+  padding-left: 1.2rem;
+
+  li + li {
+    margin-top: var(--space-1);
+  }
+`;
+
+const CsvHint = styled.p`
+  margin: 0 0 var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+
+  code {
+    padding: 0.1rem 0.35rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-subtle);
+    font-size: 0.92em;
+  }
+`;
+
+const ACTUALS_CSV_TEMPLATE = `month,category,amount,note
+2026-01,Marketing,4800,January search ads
+2026-01,Payroll,20500,
+2026-02,Payroll,19800,February payroll
 `;
 
 const FilterCard = styled(Card)`
@@ -422,6 +484,8 @@ export function ActualsPage() {
   const [actuals, setActuals] = useState<Actual[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
+  const [importErrors, setImportErrors] = useState<ActualCsvImportError[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newMonth, setNewMonth] = useState(currentMonth);
@@ -435,11 +499,26 @@ export function ActualsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [actualToDelete, setActualToDelete] = useState<Actual | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categoryMap = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories],
   );
+
+  const reloadActuals = async () => {
+    const [categoryResult, actualResult] = await Promise.all([
+      categoryService.getAll(),
+      actualService.getAll({
+        month,
+        ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+      }),
+    ]);
+    setCategories(categoryResult);
+    setActuals(sortActuals(actualResult));
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -479,6 +558,61 @@ export function ActualsPage() {
     setNewAmount("");
     setNewNote("");
     setFormError("");
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      setPageError("");
+      setPageSuccess("");
+      setImportErrors([]);
+      const blob = await actualService.exportCsv({
+        month,
+        ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+      });
+      downloadBlob(blob, `actuals-${month}.csv`);
+      setPageSuccess(`Exported ${actuals.length} actual entr${actuals.length === 1 ? "y" : "ies"} for ${formatMonth(month)}.`);
+    } catch (error) {
+      setPageError(getApiErrorMessage(error, "Unable to export actuals CSV."));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadTextFile(ACTUALS_CSV_TEMPLATE, "actuals-template.csv");
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      setIsImporting(true);
+      setPageError("");
+      setPageSuccess("");
+      setImportErrors([]);
+      const csv = await file.text();
+      const result = await actualService.importCsv(csv);
+      await reloadActuals();
+      setImportErrors(result.errors ?? []);
+      setPageSuccess(result.message);
+    } catch (error) {
+      const responseErrors = axios.isAxiosError<{ errors?: ActualCsvImportError[] }>(
+        error,
+      )
+        ? (error.response?.data?.errors ?? [])
+        : [];
+      setImportErrors(responseErrors);
+      setPageError(getApiErrorMessage(error, "Unable to import actuals CSV."));
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
@@ -597,13 +731,85 @@ export function ActualsPage() {
         title="Actuals"
         description="Record real spending and review where money was used during each month."
         action={
-          <Button onClick={isCreateOpen ? () => setIsCreateOpen(false) : openCreateForm}>
-            {isCreateOpen ? "Close form" : "New actual"}
-          </Button>
+          <HeaderActions>
+            <Button
+              variant="secondary"
+              disabled={isExporting || isImporting}
+              onClick={handleDownloadTemplate}
+            >
+              CSV template
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={isExporting || isImporting}
+              onClick={() => void handleExport()}
+            >
+              {isExporting ? "Exporting..." : "Export CSV"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={isExporting || isImporting}
+              onClick={handleImportClick}
+            >
+              {isImporting ? "Importing..." : "Import CSV"}
+            </Button>
+            <Button
+              disabled={isExporting || isImporting}
+              onClick={isCreateOpen ? () => setIsCreateOpen(false) : openCreateForm}
+            >
+              {isCreateOpen ? "Close form" : "New actual"}
+            </Button>
+            <HiddenFileInput
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(event) => void handleImportFile(event)}
+            />
+          </HeaderActions>
         }
       />
 
-      {pageError ? <ErrorBanner role="alert">{pageError}</ErrorBanner> : null}
+      <CsvHint>
+        CSV columns: <code>month</code>, <code>category</code>, <code>amount</code>,
+        optional <code>note</code>. Month must be <code>YYYY-MM</code>. Category
+        names must already exist. Locked months are rejected.
+      </CsvHint>
+
+      {pageSuccess ? (
+        <SuccessBanner role="status">
+          {pageSuccess}
+          {importErrors.length > 0 ? (
+            <ImportErrors>
+              {importErrors.slice(0, 8).map((item) => (
+                <li key={`${item.row}-${item.message}`}>
+                  Row {item.row}: {item.message}
+                </li>
+              ))}
+              {importErrors.length > 8 ? (
+                <li>…and {importErrors.length - 8} more</li>
+              ) : null}
+            </ImportErrors>
+          ) : null}
+        </SuccessBanner>
+      ) : null}
+
+      {pageError ? (
+        <ErrorBanner role="alert">
+          {pageError}
+          {importErrors.length > 0 ? (
+            <ImportErrors>
+              {importErrors.slice(0, 8).map((item) => (
+                <li key={`${item.row}-${item.message}`}>
+                  Row {item.row}: {item.message}
+                </li>
+              ))}
+              {importErrors.length > 8 ? (
+                <li>…and {importErrors.length - 8} more</li>
+              ) : null}
+            </ImportErrors>
+          ) : null}
+        </ErrorBanner>
+      ) : null}
 
       {isCreateOpen ? (
         <FormCard>
@@ -700,6 +906,8 @@ export function ActualsPage() {
               onChange={(event) => {
                 setIsLoading(true);
                 setPageError("");
+                setPageSuccess("");
+                setImportErrors([]);
                 setMonth(event.target.value);
               }}
             />
@@ -712,6 +920,8 @@ export function ActualsPage() {
               onChange={(event) => {
                 setIsLoading(true);
                 setPageError("");
+                setPageSuccess("");
+                setImportErrors([]);
                 setCategoryFilter(event.target.value);
               }}
             >

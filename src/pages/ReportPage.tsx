@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 import { AppIcon } from "../components/common/AppIcon";
+import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { PageHeader } from "../components/common/PageHeader";
 import { categoryService } from "../services/category.service";
 import { reportService } from "../services/report.service";
 import type { Category } from "../types/category";
 import type { ReportResponse } from "../types/report";
+import { downloadTextFile } from "../utils/download";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
 
 const ErrorBanner = styled.div`
@@ -262,6 +264,29 @@ const EmptyState = styled(Card)`
   }
 `;
 
+const escapeCsv = (value: string | number) => {
+  const text = String(value);
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+};
+
+const toMajor = (minorUnits: number) => (minorUnits / 100).toFixed(2);
+
+const formatCsvPercentage = (value: number | null) => {
+  if (value === null) return "";
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${Math.abs(value).toFixed(2)}%`;
+};
+
+const formatCsvSignedAmount = (minorUnits: number) => {
+  const major = toMajor(Math.abs(minorUnits));
+  if (minorUnits > 0) return `+${major}`;
+  if (minorUnits < 0) return `-${major}`;
+  return major;
+};
+
 const currentMonth = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -344,6 +369,33 @@ export function ReportPage() {
     update();
   };
 
+  const handleExportCsv = () => {
+    if (!report || report.rows.length === 0) return;
+
+    const lines = [
+      ["Month", "Category", "Plan", "Actual", "Variance", "Variance %"]
+        .map(escapeCsv)
+        .join(","),
+      ...report.rows.map((row) =>
+        [
+          row.month,
+          row.categoryName,
+          toMajor(row.plan),
+          toMajor(row.actual),
+          formatCsvSignedAmount(row.variance),
+          formatCsvPercentage(row.variancePercentage),
+        ]
+          .map(escapeCsv)
+          .join(","),
+      ),
+    ];
+
+    downloadTextFile(
+      `${lines.join("\n")}\n`,
+      `plan-vs-actual-${startMonth}-to-${endMonth}.csv`,
+    );
+  };
+
   const rangeInvalid = startMonth > endMonth;
   const summary = report?.summary;
 
@@ -352,6 +404,15 @@ export function ReportPage() {
       <PageHeader
         title="Plan vs Actual"
         description="Compare spending targets with real results and quickly identify over- or under-spending."
+        action={
+          <Button
+            variant="secondary"
+            disabled={!report || report.rows.length === 0 || rangeInvalid}
+            onClick={handleExportCsv}
+          >
+            Export CSV
+          </Button>
+        }
       />
 
       {rangeInvalid ? (

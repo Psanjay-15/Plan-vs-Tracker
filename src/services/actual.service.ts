@@ -1,5 +1,6 @@
 import type {
   Actual,
+  ActualCsvImportResponse,
   ActualFilters,
   ActualListResponse,
   ActualResponse,
@@ -31,5 +32,21 @@ export const actualService = {
 
   async remove(actualId: string): Promise<void> {
     await api.delete(`/actuals/${actualId}`);
+  },
+
+  async exportCsv(filters: ActualFilters = {}): Promise<Blob> {
+    const { data } = await api.get<Blob>("/actuals/export", {
+      params: filters,
+      responseType: "blob",
+    });
+    return data;
+  },
+
+  async importCsv(csv: string): Promise<ActualCsvImportResponse> {
+    const { data } = await api.post<ActualCsvImportResponse>(
+      "/actuals/import",
+      { csv },
+    );
+    return data;
   },
 };

@@ -22,6 +22,8 @@ export interface UpdateActualInput {
 
 export interface ActualFilters {
   month?: string;
+  startMonth?: string;
+  endMonth?: string;
   categoryId?: string;
 }
 
@@ -34,4 +36,18 @@ export interface ActualResponse {
   success: boolean;
   message: string;
   actual: Actual;
+}
+
+export interface ActualCsvImportError {
+  row: number;
+  message: string;
+}
+
+export interface ActualCsvImportResponse {
+  success: boolean;
+  message: string;
+  imported: number;
+  failed: number;
+  errors: ActualCsvImportError[];
+  actuals: Actual[];
 }
