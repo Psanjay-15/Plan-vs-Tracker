@@ -7,6 +7,8 @@ import express, {
 } from "express";
 import authRoutes from "./routes/auth.routes";
 import categoryRoutes from "./routes/category.routes";
+import periodLockRoutes from "./routes/periodLock.routes";
+import planRoutes from "./routes/plan.routes";
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.get("/api/health", (_req: Request, res: Response) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/plans", planRoutes);
+app.use("/api/period-locks", periodLockRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({

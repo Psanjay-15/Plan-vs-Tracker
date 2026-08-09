@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { Types } from "mongoose";
 import Category from "../models/Category";
+import Plan from "../models/Plan";
 
 const categoryResponse = (category: {
   _id: unknown;
@@ -161,7 +162,7 @@ export const deleteCategory = async (
   }
 
   try {
-    const category = await Category.findOneAndDelete({
+    const category = await Category.findOne({
       _id: categoryId,
       userId: req.userId,
     });
@@ -173,6 +174,21 @@ export const deleteCategory = async (
       });
       return;
     }
+
+    const categoryIsUsed = await Plan.exists({
+      categoryId: category._id,
+      userId: req.userId,
+    });
+
+    if (categoryIsUsed) {
+      res.status(409).json({
+        success: false,
+        message: "Category cannot be deleted because it is used by a plan",
+      });
+      return;
+    }
+
+    await category.deleteOne();
 
     res.status(200).json({
       success: true,
