@@ -63,7 +63,7 @@ export function SignupPage() {
         email: email.trim(),
         password,
       });
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       setRequestError(
         getApiErrorMessage(error, "Unable to create your account."),

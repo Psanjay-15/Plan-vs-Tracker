@@ -1,6 +1,7 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
+import { AppIcon } from "../common/AppIcon";
 
 const Page = styled.main`
   display: grid;
@@ -8,7 +9,7 @@ const Page = styled.main`
   place-items: center;
   padding: var(--space-6);
   background:
-    radial-gradient(circle at 10% 15%, rgb(99 102 241 / 12%), transparent 32rem),
+    radial-gradient(circle at 10% 15%, rgb(214 106 58 / 14%), transparent 32rem),
     var(--color-background);
 
   @media (max-width: 640px) {
@@ -40,7 +41,7 @@ const BrandPanel = styled.div`
   padding: var(--space-10);
   background:
     linear-gradient(155deg, rgb(255 255 255 / 8%), transparent 40%),
-    #172033;
+    #3a2921;
   color: #ffffff;
 
   @media (max-width: 800px) {
@@ -80,7 +81,7 @@ const BrandCopy = styled.div`
   p {
     max-width: 320px;
     margin: 0;
-    color: #cbd1dc;
+    color: #e6d9cf;
     font-size: var(--font-size-sm);
   }
 
@@ -154,7 +155,7 @@ export function AuthLayout({
       <Shell>
         <BrandPanel>
           <BrandLink to="/">
-            <BrandMark>P</BrandMark>
+            <BrandMark><AppIcon name="brand" size={20} /></BrandMark>
             Plan vs Actual
           </BrandLink>
 

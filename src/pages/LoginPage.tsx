@@ -40,7 +40,7 @@ export function LoginPage() {
     try {
       setIsSubmitting(true);
       await login({ email: email.trim(), password });
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       setRequestError(
         getApiErrorMessage(error, "Unable to sign in. Please try again."),

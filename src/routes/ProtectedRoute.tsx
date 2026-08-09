@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../hooks/useAuth";
 
@@ -11,15 +11,16 @@ const LoadingPage = styled.main`
   font-size: var(--font-size-sm);
 `;
 
-export function PublicOnlyRoute({ children }: PropsWithChildren) {
+export function ProtectedRoute({ children }: PropsWithChildren) {
+  const location = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <LoadingPage>Checking your session...</LoadingPage>;
+    return <LoadingPage>Loading your workspace...</LoadingPage>;
   }
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   return children;

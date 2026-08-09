@@ -1,25 +1,25 @@
 :root {
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
+  --color-primary-50: #fff4ec;
+  --color-primary-100: #ffe2cf;
+  --color-primary-500: #d66a3a;
+  --color-primary-600: #b94f27;
+  --color-primary-700: #8f3b20;
 
-  --color-success-50: #ecfdf3;
-  --color-success-600: #039855;
-  --color-warning-50: #fffaeb;
-  --color-warning-600: #dc6803;
-  --color-danger-50: #fef3f2;
-  --color-danger-600: #d92d20;
+  --color-success-50: #eef7ef;
+  --color-success-600: #4d7c57;
+  --color-warning-50: #fff6df;
+  --color-warning-600: #a66716;
+  --color-danger-50: #fff0ed;
+  --color-danger-600: #bd4035;
 
-  --color-background: #f7f8fc;
-  --color-surface: #ffffff;
-  --color-surface-subtle: #f9fafb;
-  --color-text: #172033;
-  --color-text-muted: #667085;
-  --color-text-subtle: #98a2b3;
-  --color-border: #e4e7ec;
-  --color-border-strong: #d0d5dd;
+  --color-background: #f6f1ea;
+  --color-surface: #fffdf9;
+  --color-surface-subtle: #faf6f0;
+  --color-text: #302924;
+  --color-text-muted: #746a62;
+  --color-text-subtle: #a09489;
+  --color-border: #e7ddd2;
+  --color-border-strong: #d7c9bb;
 
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -49,12 +49,12 @@
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
   --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
+  --radius-xl: 1rem;
   --radius-full: 9999px;
 
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
-  --shadow-md: 0 8px 24px rgb(16 24 40 / 8%);
-  --focus-ring: 0 0 0 3px rgb(99 102 241 / 20%);
+  --shadow-sm: 0 1px 2px rgb(72 49 36 / 5%), 0 4px 14px rgb(72 49 36 / 3%);
+  --shadow-md: 0 14px 38px rgb(72 49 36 / 13%);
+  --focus-ring: 0 0 0 3px rgb(214 106 58 / 20%);
 
   font-family: var(--font-sans);
   color: var(--color-text);
@@ -100,6 +100,15 @@ input,
 select,
 textarea {
   font-size: inherit;
+}
+
+select {
+  appearance: none;
+  padding-right: 2.75rem !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m6 8 4 4 4-4' stroke='%236e6259' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 1.15rem !important;
 }
 
 button,

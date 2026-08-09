@@ -1,7 +1,19 @@
 import type { ButtonHTMLAttributes, PropsWithChildren } from "react";
 import styled from "styled-components";
 
-type ButtonVariant = "primary" | "secondary";
+type ButtonVariant = "danger" | "primary" | "secondary";
+
+const variantColor = (variant: ButtonVariant) => {
+  if (variant === "primary") return "var(--color-primary-600)";
+  if (variant === "danger") return "var(--color-danger-600)";
+  return "var(--color-text)";
+};
+
+const variantBackground = (variant: ButtonVariant) => {
+  if (variant === "primary") return "var(--color-primary-600)";
+  if (variant === "danger") return "var(--color-danger-50)";
+  return "var(--color-surface)";
+};
 
 interface StyledButtonProps {
   $fullWidth: boolean;
@@ -17,16 +29,13 @@ const StyledButton = styled.button<StyledButtonProps>`
   padding: 0.7rem 1.1rem;
   border: 1px solid
     ${({ $variant }) =>
-      $variant === "primary"
-        ? "var(--color-primary-600)"
-        : "var(--color-border-strong)"};
+      $variant === "secondary"
+        ? "var(--color-border-strong)"
+        : variantColor($variant)};
   border-radius: var(--radius-md);
-  background: ${({ $variant }) =>
-    $variant === "primary"
-      ? "var(--color-primary-600)"
-      : "var(--color-surface)"};
+  background: ${({ $variant }) => variantBackground($variant)};
   color: ${({ $variant }) =>
-    $variant === "primary" ? "#ffffff" : "var(--color-text)"};
+    $variant === "primary" ? "#ffffff" : variantColor($variant)};
   font-weight: 650;
   line-height: 1;
   cursor: pointer;
@@ -40,10 +49,14 @@ const StyledButton = styled.button<StyledButtonProps>`
     border-color: ${({ $variant }) =>
       $variant === "primary"
         ? "var(--color-primary-700)"
+        : $variant === "danger"
+          ? "var(--color-danger-600)"
         : "var(--color-primary-500)"};
     background: ${({ $variant }) =>
       $variant === "primary"
         ? "var(--color-primary-700)"
+        : $variant === "danger"
+          ? "#f9ddd7"
         : "var(--color-primary-50)"};
   }
 
