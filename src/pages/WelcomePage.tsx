@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import styled from "styled-components";
+import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { PageContainer } from "../components/layout/PageContainer";
 import { useAuth } from "../hooks/useAuth";
@@ -49,14 +52,49 @@ const StatusDot = styled.span<{ $active: boolean }>`
     $active ? "var(--color-success-600)" : "var(--color-text-subtle)"};
 `;
 
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+`;
+
+const ActionLink = styled(Link)<{ $primary?: boolean }>`
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid
+    ${({ $primary }) =>
+      $primary ? "var(--color-primary-600)" : "var(--color-border-strong)"};
+  border-radius: var(--radius-md);
+  background: ${({ $primary }) =>
+    $primary ? "var(--color-primary-600)" : "var(--color-surface)"};
+  color: ${({ $primary }) => ($primary ? "#ffffff" : "var(--color-text)")};
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+`;
+
 export function WelcomePage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const statusText = isLoading
     ? "Checking your session..."
     : isAuthenticated
       ? `Signed in as ${user?.name}`
-      : "Frontend foundation is ready";
+      : "Sign in or create an account to continue";
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <PageContainer>
@@ -67,6 +105,34 @@ export function WelcomePage() {
           Set monthly targets, record spending, lock completed periods, and
           understand every variance from one focused workspace.
         </Description>
+
+        <Card>
+          <Status>
+            <StatusDot $active={!isLoading} />
+            {statusText}
+          </Status>
+
+          {!isLoading ? (
+            <Actions>
+              {isAuthenticated ? (
+                <Button
+                  variant="secondary"
+                  disabled={isLoggingOut}
+                  onClick={() => void handleLogout()}
+                >
+                  {isLoggingOut ? "Signing out..." : "Sign out"}
+                </Button>
+              ) : (
+                <>
+                  <ActionLink to="/login">Sign in</ActionLink>
+                  <ActionLink to="/signup" $primary>
+                    Create account
+                  </ActionLink>
+                </>
+              )}
+            </Actions>
+          ) : null}
+        </Card>
       </Content>
     </PageContainer>
   );
