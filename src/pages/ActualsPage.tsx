@@ -102,7 +102,7 @@ const Select = styled.select<{ $hasError?: boolean }>`
 
 const TextArea = styled.textarea<{ $hasError?: boolean }>`
   width: 100%;
-  min-height: 5.25rem;
+  min-height: 4.5rem;
   resize: vertical;
   padding: 0.65rem 0.8rem;
   border: 1px solid
@@ -169,6 +169,7 @@ const FormCard = styled(Card)`
 const ActualForm = styled.form`
   display: grid;
   grid-template-columns: repeat(3, minmax(170px, 1fr));
+  align-items: start;
   gap: var(--space-4);
 
   @media (max-width: 820px) {
@@ -181,15 +182,32 @@ const ActualForm = styled.form`
 `;
 
 const NoteField = styled(Field)`
-  grid-column: 1 / -1;
+  grid-column: 1 / span 2;
+
+  @media (max-width: 820px) {
+    grid-column: 1 / -1;
+  }
 `;
 
 const FormFooter = styled.div`
   display: flex;
-  grid-column: 1 / -1;
-  align-items: center;
-  justify-content: space-between;
+  grid-column: 3;
+  align-self: end;
+  align-items: flex-end;
+  justify-content: flex-end;
   gap: var(--space-4);
+
+  @media (max-width: 820px) {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 560px) {
+    align-items: stretch;
+
+    button {
+      width: 100%;
+    }
+  }
 `;
 
 const FieldMessage = styled.span<{ $error?: boolean }>`
@@ -654,6 +672,7 @@ export function ActualsPage() {
                   setFormError("");
                 }}
               />
+              <FieldMessage>{newNote.length}/500 characters</FieldMessage>
             </NoteField>
 
             <FormFooter>
@@ -661,9 +680,7 @@ export function ActualsPage() {
                 <FieldMessage $error role="alert">
                   {formError}
                 </FieldMessage>
-              ) : (
-                <FieldMessage>{newNote.length}/500 characters</FieldMessage>
-              )}
+              ) : null}
               <Button type="submit" disabled={isCreating || categories.length === 0}>
                 {isCreating ? "Recording..." : "Record actual"}
               </Button>
