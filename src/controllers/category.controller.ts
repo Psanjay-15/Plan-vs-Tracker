@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { Types } from "mongoose";
+import Actual from "../models/Actual";
 import Category from "../models/Category";
 import Plan from "../models/Plan";
 
@@ -175,15 +176,16 @@ export const deleteCategory = async (
       return;
     }
 
-    const categoryIsUsed = await Plan.exists({
-      categoryId: category._id,
-      userId: req.userId,
-    });
+    const [usedByPlan, usedByActual] = await Promise.all([
+      Plan.exists({ categoryId: category._id, userId: req.userId }),
+      Actual.exists({ categoryId: category._id, userId: req.userId }),
+    ]);
 
-    if (categoryIsUsed) {
+    if (usedByPlan || usedByActual) {
       res.status(409).json({
         success: false,
-        message: "Category cannot be deleted because it is used by a plan",
+        message:
+          "Category cannot be deleted because it is used by a plan or actual entry",
       });
       return;
     }

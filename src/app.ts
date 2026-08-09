@@ -5,6 +5,7 @@ import express, {
   type Request,
   type Response,
 } from "express";
+import actualRoutes from "./routes/actual.routes";
 import authRoutes from "./routes/auth.routes";
 import categoryRoutes from "./routes/category.routes";
 import periodLockRoutes from "./routes/periodLock.routes";
@@ -31,6 +32,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/actuals", actualRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/period-locks", periodLockRoutes);
 
