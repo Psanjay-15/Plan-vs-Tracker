@@ -6,6 +6,10 @@ import type {
 import User from "../models/User";
 import { getCountryCurrency } from "../constants/currencies";
 import {
+  buildChartsFromReport,
+  type AssistantChart,
+} from "../utils/assistantCharts";
+import {
   runAssistantTool,
   type PendingAssistantAction,
 } from "./assistant-tools.service";
@@ -15,7 +19,7 @@ export interface AssistantHistoryMessage {
   content: string;
 }
 
-export type { PendingAssistantAction };
+export type { PendingAssistantAction, AssistantChart };
 
 const tools: ChatCompletionTool[] = [
   {
@@ -271,13 +275,15 @@ Rules:
 - Never claim that a write already succeeded.
 - You CAN create new categories with propose_create_category. Do not say categories must already exist.
 - If a write request is missing required fields, ask for the missing values.
-- Keep answers concise and calculation-focused. Mention when no matching data exists.`,
+- Keep answers concise and calculation-focused. Mention when no matching data exists.
+- When you use get_plan_vs_actual, the UI can show charts automatically. Keep your text short and point users to the visuals when helpful.`,
     },
     ...history.slice(-10),
     { role: "user", content: message },
   ];
 
   const client = getClient();
+  const charts: AssistantChart[] = [];
 
   for (let turn = 0; turn < 5; turn += 1) {
     const completion = await client.chat.completions.create({
@@ -296,6 +302,7 @@ Rules:
       return {
         message:
           response.content?.trim() || "I could not complete that request.",
+        ...(charts.length > 0 ? { charts } : {}),
       };
     }
 
@@ -320,6 +327,21 @@ Rules:
               "Please review and confirm this change before I save it.",
             pendingAction: output.pendingAction,
           };
+        }
+
+        if (
+          call.function.name === "get_plan_vs_actual" &&
+          output.result &&
+          typeof output.result === "object"
+        ) {
+          const nextCharts = buildChartsFromReport(
+            output.result as Parameters<typeof buildChartsFromReport>[0],
+          );
+          for (const chart of nextCharts) {
+            if (!charts.some((existing) => existing.id === chart.id)) {
+              charts.push(chart);
+            }
+          }
         }
 
         messages.push({
