@@ -5,6 +5,7 @@ import { AssistantChatLauncher } from "../assistant/AssistantChatLauncher";
 import { AppIcon } from "../common/AppIcon";
 import { Button } from "../common/Button";
 import { PageTransition } from "./PageTransition";
+import { AssistantChatProvider } from "../../context/AssistantChatProvider";
 import { COUNTRY_CURRENCIES } from "../../constants/currencies";
 import { useAuth } from "../../hooks/useAuth";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
@@ -345,7 +346,9 @@ export function DashboardLayout() {
   const [isUpdatingCurrency, setIsUpdatingCurrency] = useState(false);
   const [preferenceError, setPreferenceError] = useState("");
   const lockViewport =
-    location.pathname === "/dashboard" || location.pathname === "/dashboard/";
+    location.pathname === "/dashboard" ||
+    location.pathname === "/dashboard/" ||
+    location.pathname === "/dashboard/assistant";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -374,6 +377,7 @@ export function DashboardLayout() {
   };
 
   return (
+    <AssistantChatProvider>
     <Layout>
       <Sidebar>
         <Brand to="/dashboard">
@@ -456,5 +460,6 @@ export function DashboardLayout() {
 
       <AssistantChatLauncher />
     </Layout>
+    </AssistantChatProvider>
   );
 }

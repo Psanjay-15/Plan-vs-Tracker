@@ -9,8 +9,10 @@ import {
 import { useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { AssistantChatPanel } from "./AssistantChatPanel";
+import { AssistantSessionSidebar } from "./AssistantSessionSidebar";
 import { AppIcon } from "../common/AppIcon";
-import type { AssistantMessage, PendingAssistantAction } from "../../types/assistant";
+import { Button } from "../common/Button";
+import { useAssistantChat } from "../../context/AssistantChatProvider";
 
 const FAB_SIZE = 56;
 const FAB_MARGIN = 16;
@@ -79,16 +81,16 @@ const Backdrop = styled.div`
 const Dialog = styled.div`
   position: fixed;
   z-index: 95;
-  display: grid;
+  display: flex;
   width: min(${DIALOG_WIDTH}px, calc(100vw - 1.5rem));
   height: min(${DIALOG_HEIGHT}px, calc(100vh - 7rem));
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-surface);
   box-shadow: var(--shadow-md);
   animation: ${slideUp} 180ms ease;
-  grid-template-rows: auto minmax(0, 1fr);
 
   @media (max-width: 520px) {
     height: min(72vh, calc(100vh - 6.5rem));
@@ -97,6 +99,7 @@ const Dialog = styled.div`
 
 const Header = styled.div`
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
@@ -122,6 +125,13 @@ const HeaderCopy = styled.div`
   }
 `;
 
+const HeaderActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+`;
+
 const CloseButton = styled.button`
   display: grid;
   width: 2rem;
@@ -142,8 +152,18 @@ const CloseButton = styled.button`
   }
 `;
 
+const HistoryPanel = styled.div`
+  flex: 0 0 auto;
+  max-height: 180px;
+  overflow: auto;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+`;
+
 const PanelFrame = styled.div`
   min-height: 0;
+  flex: 1;
 `;
 
 interface Position {
@@ -267,10 +287,9 @@ const getSectionLabel = (pathname: string) => {
 
 export function AssistantChatLauncher() {
   const location = useLocation();
+  const { startNewChat } = useAssistantChat();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<AssistantMessage[]>([]);
-  const [pendingAction, setPendingAction] =
-    useState<PendingAssistantAction | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [position, setPosition] = useState<Position>(() => getDefaultFabPosition());
   const [isDragging, setIsDragging] = useState(false);
 
@@ -304,6 +323,7 @@ export function AssistantChatLauncher() {
   useEffect(() => {
     if (location.pathname.startsWith("/dashboard/assistant")) {
       setIsOpen(false);
+      setShowHistory(false);
     }
   }, [location.pathname]);
 
@@ -423,23 +443,40 @@ export function AssistantChatLauncher() {
                 <h2 id="assistant-chat-title">Ask your data</h2>
                 <p>Context: {sectionLabel}</p>
               </HeaderCopy>
-              <CloseButton
-                type="button"
-                aria-label="Close chat"
-                onClick={() => setIsOpen(false)}
-              >
-                ×
-              </CloseButton>
+              <HeaderActions>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    startNewChat();
+                    setShowHistory(false);
+                  }}
+                >
+                  New
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowHistory((value) => !value)}
+                >
+                  {showHistory ? "Hide" : "History"}
+                </Button>
+                <CloseButton
+                  type="button"
+                  aria-label="Close chat"
+                  onClick={() => setIsOpen(false)}
+                >
+                  ×
+                </CloseButton>
+              </HeaderActions>
             </Header>
+            {showHistory ? (
+              <HistoryPanel>
+                <AssistantSessionSidebar compact />
+              </HistoryPanel>
+            ) : null}
             <PanelFrame>
-              <AssistantChatPanel
-                compact
-                suggestions={suggestions}
-                messages={messages}
-                onMessagesChange={setMessages}
-                pendingAction={pendingAction}
-                onPendingActionChange={setPendingAction}
-              />
+              <AssistantChatPanel compact suggestions={suggestions} />
             </PanelFrame>
           </Dialog>
         </>

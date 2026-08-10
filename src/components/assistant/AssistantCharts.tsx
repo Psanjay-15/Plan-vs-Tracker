@@ -15,13 +15,15 @@ const ChartBlock = styled.div`
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-surface-subtle);
 
   h4 {
     margin: 0 0 var(--space-2);
-    color: var(--color-text);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 `;
 

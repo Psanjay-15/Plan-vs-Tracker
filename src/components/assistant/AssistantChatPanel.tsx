@@ -4,24 +4,20 @@ import { AssistantCharts } from "./AssistantCharts";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { AppIcon } from "../common/AppIcon";
 import { Button } from "../common/Button";
-import { confirmAssistantAction, sendAssistantMessage } from "../../services/assistant.service";
-import type {
-  AssistantChart,
-  AssistantMessage,
-  PendingAssistantAction,
-} from "../../types/assistant";
-import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
+import { useAssistantChat } from "../../context/AssistantChatProvider";
 import { useToast } from "../../hooks/useToast";
 
 const Shell = styled.section<{ $compact?: boolean }>`
   display: grid;
-  height: ${({ $compact }) => ($compact ? "100%" : "min(720px, calc(100vh - 190px))")};
-  min-height: ${({ $compact }) => ($compact ? "0" : "520px")};
+  height: 100%;
+  min-height: 0;
+  flex: 1;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
   border: ${({ $compact }) => ($compact ? "0" : "1px solid var(--color-border)")};
   border-radius: ${({ $compact }) => ($compact ? "0" : "var(--radius-xl)")};
-  background: var(--color-surface);
+  background: ${({ $compact }) =>
+    $compact ? "transparent" : "var(--color-surface)"};
   box-shadow: ${({ $compact }) => ($compact ? "none" : "var(--shadow-sm)")};
 `;
 
@@ -31,12 +27,15 @@ const Conversation = styled.div`
   flex-direction: column;
   gap: var(--space-4);
   overflow-y: auto;
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  background:
+    radial-gradient(circle at top left, rgb(185 79 39 / 5%), transparent 34%),
+    linear-gradient(180deg, rgb(255 255 255 / 35%), transparent 28%);
 `;
 
 const Empty = styled.div`
   display: grid;
-  max-width: 560px;
+  max-width: 520px;
   margin: auto;
   place-items: center;
   text-align: center;
@@ -75,7 +74,7 @@ const Suggestion = styled.button`
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
-  background: var(--color-surface);
+  background: rgb(255 255 255 / 88%);
   color: var(--color-text);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -92,18 +91,26 @@ const MessageRow = styled.div<{ $role: "user" | "assistant" }>`
 `;
 
 const Bubble = styled.div<{ $role: "user" | "assistant" }>`
-  max-width: min(92%, 560px);
-  padding: 0.75rem 0.9rem;
+  max-width: ${({ $role }) =>
+    $role === "assistant" ? "min(96%, 720px)" : "min(88%, 520px)"};
+  padding: ${({ $role }) =>
+    $role === "assistant" ? "0.9rem 1rem" : "0.75rem 0.95rem"};
   border: 1px solid
     ${({ $role }) =>
-      $role === "user" ? "var(--color-primary-600)" : "var(--color-border)"};
+      $role === "user" ? "transparent" : "var(--color-border)"};
   border-radius: ${({ $role }) =>
     $role === "user"
-      ? "var(--radius-lg) var(--radius-sm) var(--radius-lg) var(--radius-lg)"
-      : "var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg)"};
+      ? "1.1rem 1.1rem 0.35rem 1.1rem"
+      : "1.1rem 1.1rem 1.1rem 0.35rem"};
   background: ${({ $role }) =>
-    $role === "user" ? "var(--color-primary-600)" : "var(--color-surface-subtle)"};
+    $role === "user"
+      ? "linear-gradient(145deg, var(--color-primary-500), var(--color-primary-700))"
+      : "rgb(255 255 255 / 92%)"};
   color: ${({ $role }) => ($role === "user" ? "#fff" : "var(--color-text)")};
+  box-shadow: ${({ $role }) =>
+    $role === "user"
+      ? "0 8px 18px rgb(123 63 28 / 16%)"
+      : "0 1px 2px rgb(28 25 23 / 4%)"};
   white-space: ${({ $role }) => ($role === "user" ? "pre-wrap" : "normal")};
   font-size: var(--font-size-sm);
 `;
@@ -151,23 +158,24 @@ const Actions = styled.div`
 
 const Composer = styled.form`
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: 0.85rem 1rem;
   border-top: 1px solid var(--color-border);
-  background: var(--color-surface-subtle);
+  background: rgb(255 253 250 / 92%);
 `;
 
 const Input = styled.textarea`
   width: 100%;
-  min-height: 2.8rem;
+  min-height: 2.9rem;
   max-height: 8rem;
   resize: none;
-  padding: 0.72rem 0.9rem;
+  padding: 0.78rem 0.95rem;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: 1rem;
   outline: none;
-  background: var(--color-surface);
+  background: #ffffff;
   color: var(--color-text);
 
   &:focus {
@@ -183,82 +191,49 @@ const ErrorText = styled.p`
   font-size: var(--font-size-sm);
 `;
 
-const makeMessage = (
-  role: AssistantMessage["role"],
-  content: string,
-  charts?: AssistantChart[],
-): AssistantMessage => ({
-  id: crypto.randomUUID(),
-  role,
-  content,
-  ...(charts && charts.length > 0 ? { charts } : {}),
-});
+const LoadingNote = styled.p`
+  margin: auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+`;
 
 interface AssistantChatPanelProps {
   suggestions: string[];
   compact?: boolean;
-  messages: AssistantMessage[];
-  onMessagesChange: (messages: AssistantMessage[]) => void;
-  pendingAction: PendingAssistantAction | null;
-  onPendingActionChange: (action: PendingAssistantAction | null) => void;
 }
 
 export function AssistantChatPanel({
   suggestions,
   compact = false,
-  messages,
-  onMessagesChange,
-  pendingAction,
-  onPendingActionChange,
 }: AssistantChatPanelProps) {
   const toast = useToast();
+  const {
+    messages,
+    pendingAction,
+    isSending,
+    isLoadingMessages,
+    error,
+    sendMessage,
+    confirmPendingAction,
+    cancelPendingAction,
+  } = useAssistantChat();
   const [input, setInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState("");
   const conversationRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () =>
+  useEffect(() => {
     requestAnimationFrame(() => {
       conversationRef.current?.scrollTo({
         top: conversationRef.current.scrollHeight,
         behavior: "smooth",
       });
     });
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, pendingAction, isSending]);
+  }, [messages, pendingAction, isSending, isLoadingMessages]);
 
   const submit = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isSending) return;
-
-    const userMessage = makeMessage("user", trimmed);
-    const history = messages;
-    onMessagesChange([...messages, userMessage]);
     setInput("");
-    setError("");
-    onPendingActionChange(null);
-    setIsSending(true);
-
-    try {
-      const response = await sendAssistantMessage(trimmed, history);
-      onMessagesChange([
-        ...history,
-        userMessage,
-        makeMessage("assistant", response.message, response.charts),
-      ]);
-      onPendingActionChange(response.pendingAction ?? null);
-    } catch (requestError) {
-      setError(
-        getApiErrorMessage(
-          requestError,
-          "The assistant could not complete that request.",
-        ),
-      );
-    } finally {
-      setIsSending(false);
-    }
+    await sendMessage(trimmed);
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -267,32 +242,18 @@ export function AssistantChatPanel({
   };
 
   const confirm = async () => {
-    if (!pendingAction) return;
-
-    setIsSending(true);
-    setError("");
-
-    try {
-      const response = await confirmAssistantAction(pendingAction.token);
-      onMessagesChange([
-        ...messages,
-        makeMessage("assistant", response.message),
-      ]);
-      onPendingActionChange(null);
-      toast.success(response.message);
-    } catch (requestError) {
-      setError(
-        getApiErrorMessage(requestError, "The change could not be saved."),
-      );
-    } finally {
-      setIsSending(false);
-    }
+    const message = await confirmPendingAction();
+    if (message) toast.success(message);
   };
 
   return (
     <Shell $compact={compact}>
       <Conversation ref={conversationRef} aria-live="polite">
-        {messages.length === 0 && (
+        {isLoadingMessages ? (
+          <LoadingNote>Loading conversation…</LoadingNote>
+        ) : null}
+
+        {!isLoadingMessages && messages.length === 0 ? (
           <Empty>
             <AssistantMark>
               <AppIcon name="assistant" size={22} />
@@ -315,32 +276,34 @@ export function AssistantChatPanel({
               ))}
             </Suggestions>
           </Empty>
-        )}
+        ) : null}
 
-        {messages.map((message) => (
-          <MessageRow key={message.id} $role={message.role}>
-            <Bubble $role={message.role}>
-              {message.role === "assistant" ? (
-                <>
-                  <AssistantMarkdown content={message.content} />
-                  {message.charts ? (
-                    <AssistantCharts charts={message.charts} />
-                  ) : null}
-                </>
-              ) : (
-                message.content
-              )}
-            </Bubble>
-          </MessageRow>
-        ))}
+        {!isLoadingMessages
+          ? messages.map((message) => (
+              <MessageRow key={message.id} $role={message.role}>
+                <Bubble $role={message.role}>
+                  {message.role === "assistant" ? (
+                    <>
+                      <AssistantMarkdown content={message.content} />
+                      {message.charts ? (
+                        <AssistantCharts charts={message.charts} />
+                      ) : null}
+                    </>
+                  ) : (
+                    message.content
+                  )}
+                </Bubble>
+              </MessageRow>
+            ))
+          : null}
 
-        {isSending && (
+        {isSending ? (
           <MessageRow $role="assistant">
             <Bubble $role="assistant">Working on it…</Bubble>
           </MessageRow>
-        )}
+        ) : null}
 
-        {pendingAction && (
+        {pendingAction ? (
           <ActionCard>
             <h3>{pendingAction.title}</h3>
             <p>{pendingAction.description}</p>
@@ -358,14 +321,14 @@ export function AssistantChatPanel({
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => onPendingActionChange(null)}
+                onClick={cancelPendingAction}
                 disabled={isSending}
               >
                 Cancel
               </Button>
             </Actions>
           </ActionCard>
-        )}
+        ) : null}
       </Conversation>
 
       <Composer onSubmit={handleSubmit}>
@@ -374,7 +337,7 @@ export function AssistantChatPanel({
           maxLength={2000}
           rows={1}
           placeholder="Ask about plans and spending…"
-          disabled={isSending}
+          disabled={isSending || isLoadingMessages}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -383,7 +346,10 @@ export function AssistantChatPanel({
             }
           }}
         />
-        <Button type="submit" disabled={isSending || !input.trim()}>
+        <Button
+          type="submit"
+          disabled={isSending || isLoadingMessages || !input.trim()}
+        >
           Send
         </Button>
         {error ? <ErrorText role="alert">{error}</ErrorText> : null}

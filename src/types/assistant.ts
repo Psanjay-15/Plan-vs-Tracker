@@ -3,6 +3,15 @@ export interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
   charts?: AssistantChart[];
+  createdAt?: string;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  lastMessageAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type AssistantChartType =
@@ -48,6 +57,10 @@ export interface PendingAssistantAction {
 export interface AssistantChatResponse {
   success: boolean;
   message: string;
+  sessionId: string;
+  session: ChatSession;
+  userMessage: AssistantMessage;
+  assistantMessage: AssistantMessage;
   pendingAction?: PendingAssistantAction;
   charts?: AssistantChart[];
 }
