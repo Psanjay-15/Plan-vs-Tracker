@@ -24,23 +24,9 @@ export const isSmtpConfigured = () =>
       readEnv("SMTP_PASS"),
   );
 
-export const logMailerStatus = () => {
-  if (!isSmtpConfigured()) {
-    console.warn(
-      "[mailer] SMTP env vars missing (SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM). Budget email alerts are disabled on this host.",
-    );
-    return;
-  }
-
-  console.log(
-    `[mailer] SMTP ready via ${readEnv("SMTP_HOST")}:${readEnv("SMTP_PORT") || "587"} as ${readEnv("SMTP_USER")}`,
-  );
-};
-
 export const getMailTransporter = () => {
   if (!isSmtpConfigured()) {
     if (!warnedMissingConfig) {
-      logMailerStatus();
       warnedMissingConfig = true;
     }
     return null;
@@ -81,22 +67,15 @@ export const sendEmail = async (input: {
   if (!mailer) return false;
 
   try {
-    const info = await mailer.sendMail({
+    await mailer.sendMail({
       from: readEnv("SMTP_FROM"),
       to: input.to,
       subject: input.subject,
       text: input.text,
       html: input.html,
     });
-    console.log(
-      `[mailer] Sent "${input.subject}" to ${input.to} (${info.messageId})`,
-    );
     return true;
-  } catch (error) {
-    console.error(
-      `[mailer] Failed to send "${input.subject}" to ${input.to}:`,
-      error instanceof Error ? error.message : error,
-    );
+  } catch {
     transporter = null;
     return false;
   }

@@ -9,6 +9,8 @@ export interface IUser {
   email: string;
   password: string;
   countryCode: string;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +34,7 @@ const userSchema = new Schema<IUser>(
     password: {
       type: String,
       required: true,
+      select: false,
     },
     countryCode: {
       type: String,
@@ -42,6 +45,14 @@ const userSchema = new Schema<IUser>(
         validator: isValidCountryCode,
         message: "Unsupported country selection",
       },
+    },
+    passwordResetToken: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpires: {
+      type: Date,
+      select: false,
     },
   },
   { timestamps: true },
