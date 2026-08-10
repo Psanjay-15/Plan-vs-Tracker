@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { AppIcon } from "../components/common/AppIcon";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { PageHeader } from "../components/common/PageHeader";
 import { useCurrency } from "../hooks/useCurrency";
+import { actualService } from "../services/actual.service";
 import { categoryService } from "../services/category.service";
 import { reportService } from "../services/report.service";
+import type { Actual } from "../types/actual";
 import type { Category } from "../types/category";
 import type { ReportResponse } from "../types/report";
 import { downloadTextFile } from "../utils/download";
@@ -24,13 +26,30 @@ const ErrorBanner = styled.div`
 
 const FilterCard = styled(Card)`
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-6);
   padding: var(--space-5) var(--space-6);
 
-  @media (max-width: 760px) {
+  @media (max-width: 980px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 620px) {
     grid-template-columns: 1fr;
+  }
+`;
+
+const RulesNote = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: calc(var(--space-2) * -1) 0 var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+
+  strong {
+    color: var(--color-text);
   }
 `;
 
@@ -134,6 +153,90 @@ const VarianceValue = styled.strong<{ $value: number }>`
         : "var(--color-text)"};
 `;
 
+const ChartCard = styled(Card)`
+  margin-bottom: var(--space-6);
+  padding: var(--space-6);
+
+  h2 {
+    margin-bottom: var(--space-1);
+    font-size: var(--font-size-lg);
+  }
+
+  > p {
+    margin-bottom: var(--space-5);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+  }
+`;
+
+const ChartRows = styled.div`
+  display: grid;
+  gap: var(--space-4);
+`;
+
+const ChartRow = styled.div`
+  display: grid;
+  grid-template-columns: 90px minmax(120px, 1fr) minmax(90px, auto);
+  align-items: center;
+  gap: var(--space-4);
+
+  @media (max-width: 520px) {
+    grid-template-columns: 70px minmax(90px, 1fr);
+
+    > strong:last-child {
+      grid-column: 2;
+      font-size: var(--font-size-xs);
+    }
+  }
+`;
+
+const ChartMonth = styled.strong`
+  font-size: var(--font-size-sm);
+`;
+
+const VarianceTrack = styled.div`
+  position: relative;
+  height: 1.75rem;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(to right, transparent calc(50% - 0.5px), var(--color-border-strong) calc(50% - 0.5px), var(--color-border-strong) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    var(--color-surface-subtle);
+`;
+
+const VarianceBar = styled.span<{ $positive: boolean; $width: number }>`
+  position: absolute;
+  top: 0.35rem;
+  ${({ $positive }) => ($positive ? "left: 50%;" : "right: 50%;")}
+  width: ${({ $width }) => `${Math.max($width, 1.5)}%`};
+  height: 1.05rem;
+  border-radius: var(--radius-sm);
+  background: ${({ $positive }) =>
+    $positive ? "var(--color-danger-600)" : "var(--color-success-600)"};
+`;
+
+const ChartLegend = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+
+  span::before {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-right: var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--color-success-600);
+    content: "";
+  }
+
+  span:last-child::before {
+    background: var(--color-danger-600);
+  }
+`;
+
 const TableCard = styled(Card)`
   overflow: hidden;
   margin-bottom: var(--space-6);
@@ -231,6 +334,68 @@ const TableVariance = styled(NumberValue)<{ $value: number }>`
   font-weight: 650;
 `;
 
+const EntriesButton = styled.button`
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary-600);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--focus-ring);
+  }
+`;
+
+const DrillCell = styled.td`
+  padding: 0 !important;
+  background: var(--color-surface-subtle);
+`;
+
+const DrillPanel = styled.div`
+  padding: var(--space-5) var(--space-6);
+
+  h3 {
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+`;
+
+const DrillError = styled.p`
+  margin: 0;
+  color: var(--color-danger-600);
+  font-size: var(--font-size-sm);
+`;
+
+const EntryList = styled.div`
+  display: grid;
+  gap: var(--space-2);
+`;
+
+const EntryItem = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+  p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  strong {
+    font-variant-numeric: tabular-nums;
+  }
+`;
+
 const StatusBadge = styled.span<{ $locked: boolean }>`
   display: inline-flex;
   padding: var(--space-1) var(--space-2);
@@ -308,15 +473,27 @@ const formatPercentage = (value: number | null) => {
   return `${value > 0 ? "+" : "−"}${Math.abs(value).toFixed(2)}%`;
 };
 
+const getFiscalYearOptions = () => {
+  const year = new Date().getFullYear();
+  return Array.from({ length: 7 }, (_, index) => year - 4 + index);
+};
+
 export function ReportPage() {
   const { formatAmount, formatSignedAmount } = useCurrency();
   const [startMonth, setStartMonth] = useState(currentMonth);
   const [endMonth, setEndMonth] = useState(currentMonth);
+  const [fiscalYear, setFiscalYear] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [drillEntries, setDrillEntries] = useState<Actual[]>([]);
+  const [isDrillLoading, setIsDrillLoading] = useState(false);
+  const [drillError, setDrillError] = useState("");
+
+  const fiscalYearOptions = useMemo(() => getFiscalYearOptions(), []);
 
   useEffect(() => {
     let isActive = true;
@@ -357,7 +534,47 @@ export function ReportPage() {
   const changeFilter = (update: () => void) => {
     setIsLoading(true);
     setError("");
+    setExpandedRow(null);
+    setDrillEntries([]);
     update();
+  };
+
+  const handleFiscalYearChange = (value: string) => {
+    setFiscalYear(value);
+    if (!value) return;
+
+    const startYear = Number(value);
+    changeFilter(() => {
+      setStartMonth(`${startYear}-04`);
+      setEndMonth(`${startYear + 1}-03`);
+    });
+  };
+
+  const handleDrillDown = async (row: ReportResponse["rows"][number]) => {
+    const rowKey = `${row.categoryId}-${row.month}`;
+    if (expandedRow === rowKey) {
+      setExpandedRow(null);
+      setDrillEntries([]);
+      return;
+    }
+
+    setExpandedRow(rowKey);
+    setDrillEntries([]);
+    setDrillError("");
+    setIsDrillLoading(true);
+    try {
+      const entries = await actualService.getAll({
+        month: row.month,
+        categoryId: row.categoryId,
+      });
+      setDrillEntries(entries);
+    } catch (requestError) {
+      setDrillError(
+        getApiErrorMessage(requestError, "Unable to load actual entries."),
+      );
+    } finally {
+      setIsDrillLoading(false);
+    }
   };
 
   const handleExportCsv = () => {
@@ -389,6 +606,10 @@ export function ReportPage() {
 
   const rangeInvalid = startMonth > endMonth;
   const summary = report?.summary;
+  const largestMonthlyVariance = Math.max(
+    1,
+    ...(report?.monthlyTotals.map((total) => Math.abs(total.variance)) ?? []),
+  );
 
   return (
     <>
@@ -414,14 +635,30 @@ export function ReportPage() {
 
       <FilterCard>
         <Field>
+          <label htmlFor="report-fiscal-year">Fiscal year (Apr–Mar)</label>
+          <Select
+            id="report-fiscal-year"
+            value={fiscalYear}
+            onChange={(event) => handleFiscalYearChange(event.target.value)}
+          >
+            <option value="">Custom range</option>
+            {fiscalYearOptions.map((year) => (
+              <option key={year} value={year}>
+                FY {year}–{String(year + 1).slice(-2)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field>
           <label htmlFor="report-start-month">Start month</label>
           <Control
             id="report-start-month"
             type="month"
             value={startMonth}
-            onInput={(event) =>
-              changeFilter(() => setStartMonth(event.currentTarget.value))
-            }
+            onInput={(event) => {
+              setFiscalYear("");
+              changeFilter(() => setStartMonth(event.currentTarget.value));
+            }}
           />
         </Field>
         <Field>
@@ -430,9 +667,10 @@ export function ReportPage() {
             id="report-end-month"
             type="month"
             value={endMonth}
-            onInput={(event) =>
-              changeFilter(() => setEndMonth(event.currentTarget.value))
-            }
+            onInput={(event) => {
+              setFiscalYear("");
+              changeFilter(() => setEndMonth(event.currentTarget.value));
+            }}
           />
         </Field>
         <Field>
@@ -453,6 +691,11 @@ export function ReportPage() {
           </Select>
         </Field>
       </FilterCard>
+
+      <RulesNote>
+        <span><strong>Missing actual:</strong> treated as 0.</span>
+        <span><strong>Plan is 0:</strong> variance percentage is shown as —.</span>
+      </RulesNote>
 
       {isLoading && !rangeInvalid ? (
         <LoadingState>Calculating report...</LoadingState>
@@ -489,6 +732,33 @@ export function ReportPage() {
             </SummaryCard>
           </SummaryGrid>
 
+          <ChartCard>
+            <h2>Monthly net variance</h2>
+            <p>Actual minus plan for each month in the selected range.</p>
+            <ChartRows role="img" aria-label="Monthly net variance chart">
+              {report.monthlyTotals.map((total) => (
+                <ChartRow key={total.month}>
+                  <ChartMonth>{formatMonth(total.month)}</ChartMonth>
+                  <VarianceTrack>
+                    {total.variance !== 0 ? (
+                      <VarianceBar
+                        $positive={total.variance > 0}
+                        $width={(Math.abs(total.variance) / largestMonthlyVariance) * 50}
+                      />
+                    ) : null}
+                  </VarianceTrack>
+                  <TableVariance $value={total.variance}>
+                    {formatSignedAmount(total.variance)}
+                  </TableVariance>
+                </ChartRow>
+              ))}
+            </ChartRows>
+            <ChartLegend>
+              <span>Under plan</span>
+              <span>Over plan</span>
+            </ChartLegend>
+          </ChartCard>
+
           <TableCard>
             <TableHeader>
               <div>
@@ -512,8 +782,11 @@ export function ReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.rows.map((row) => (
-                    <tr key={`${row.categoryId}-${row.month}`}>
+                  {report.rows.map((row) => {
+                    const rowKey = `${row.categoryId}-${row.month}`;
+                    return (
+                    <Fragment key={rowKey}>
+                    <tr>
                       <td>
                         <CategoryName>
                           <CategoryMark><AppIcon name="category" size={15} /></CategoryMark>
@@ -533,14 +806,48 @@ export function ReportPage() {
                           {formatPercentage(row.variancePercentage)}
                         </TableVariance>
                       </td>
-                      <td>{row.actualEntryCount}</td>
+                      <td>
+                        {row.actualEntryCount > 0 ? (
+                          <EntriesButton
+                            type="button"
+                            aria-expanded={expandedRow === rowKey}
+                            onClick={() => void handleDrillDown(row)}
+                          >
+                            {row.actualEntryCount}
+                          </EntriesButton>
+                        ) : "0"}
+                      </td>
                       <td>
                         <StatusBadge $locked={row.locked}>
                           {row.locked ? "Locked" : "Open"}
                         </StatusBadge>
                       </td>
                     </tr>
-                  ))}
+                    {expandedRow === rowKey ? (
+                      <tr>
+                        <DrillCell colSpan={8}>
+                          <DrillPanel>
+                            <h3>Actual entries for {row.categoryName} · {formatMonth(row.month)}</h3>
+                            {isDrillLoading ? (
+                              <p>Loading underlying entries...</p>
+                            ) : drillError ? (
+                              <DrillError>{drillError}</DrillError>
+                            ) : (
+                              <EntryList>
+                                {drillEntries.map((entry) => (
+                                  <EntryItem key={entry.id}>
+                                    <p>{entry.note || "No note provided"}</p>
+                                    <strong>{formatAmount(entry.amount)}</strong>
+                                  </EntryItem>
+                                ))}
+                              </EntryList>
+                            )}
+                          </DrillPanel>
+                        </DrillCell>
+                      </tr>
+                    ) : null}
+                    </Fragment>
+                  )})}
                 </tbody>
               </Table>
             </TableScroll>
