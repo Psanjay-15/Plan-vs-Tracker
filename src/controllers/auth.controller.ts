@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import {
   DEFAULT_COUNTRY_CODE,
@@ -8,7 +7,6 @@ import {
 } from "../constants/currencies";
 import Category from "../models/Category";
 import User from "../models/User";
-import { sendEmail } from "../services/mailer.service";
 import {
   clearAuthCookie,
   createAuthToken,
@@ -17,7 +15,6 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_CATEGORIES = ["Marketing", "Payroll", "Tools"];
-const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 const publicUser = (user: {
   _id: unknown;
@@ -46,12 +43,6 @@ const validatePassword = (password: unknown) => {
   }
   return null;
 };
-
-const hashResetToken = (token: string) =>
-  crypto.createHash("sha256").update(token).digest("hex");
-
-const getClientBaseUrl = () =>
-  (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
 
 export const signup = async (
   req: Request,
@@ -314,8 +305,6 @@ export const changePassword = async (
     }
 
     user.password = await bcrypt.hash(newPassword as string, 12);
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
     await user.save();
 
     const token = createAuthToken(String(user._id));
@@ -324,140 +313,6 @@ export const changePassword = async (
     res.status(200).json({
       success: true,
       message: "Password updated successfully",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const forgotPassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const { email } = req.body as Record<string, unknown>;
-
-    if (typeof email !== "string" || !EMAIL_PATTERN.test(email.trim())) {
-      res.status(400).json({
-        success: false,
-        message: "Enter a valid email address",
-      });
-      return;
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
-
-    // Always return the same message to avoid email enumeration.
-    const successMessage =
-      "If an account exists for that email, a reset link has been sent.";
-
-    if (!user) {
-      res.status(200).json({ success: true, message: successMessage });
-      return;
-    }
-
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    user.passwordResetToken = hashResetToken(resetToken);
-    user.passwordResetExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-    await user.save();
-
-    const resetUrl = `${getClientBaseUrl()}/reset-password?token=${resetToken}`;
-    const sent = await sendEmail({
-      to: user.email,
-      subject: "Reset your Plan vs Actual password",
-      text: [
-        `Hi ${user.name},`,
-        "",
-        "We received a request to reset your password.",
-        `Open this link to choose a new password (valid for 1 hour):`,
-        resetUrl,
-        "",
-        "If you did not request this, you can ignore this email.",
-      ].join("\n"),
-      html: `
-        <div style="font-family: Georgia, 'Times New Roman', serif; color: #1c1917; line-height: 1.5;">
-          <p>Hi ${user.name},</p>
-          <p>We received a request to reset your Plan vs Actual password.</p>
-          <p>
-            <a href="${resetUrl}" style="color: #b94f27; font-weight: 700;">
-              Choose a new password
-            </a>
-          </p>
-          <p style="color: #78716c; font-size: 14px;">
-            This link expires in 1 hour. If you did not request a reset, you can ignore this email.
-          </p>
-        </div>
-      `,
-    });
-
-    if (!sent) {
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save();
-      res.status(503).json({
-        success: false,
-        message:
-          "Unable to send reset email right now. Please try again later.",
-      });
-      return;
-    }
-
-    res.status(200).json({ success: true, message: successMessage });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const resetPassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const { token, newPassword } = req.body as Record<string, unknown>;
-
-    if (typeof token !== "string" || !token.trim()) {
-      res.status(400).json({
-        success: false,
-        message: "Reset token is required",
-      });
-      return;
-    }
-
-    const passwordError = validatePassword(newPassword);
-    if (passwordError) {
-      res.status(400).json({ success: false, message: passwordError });
-      return;
-    }
-
-    const hashedToken = hashResetToken(token.trim());
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: new Date() },
-    }).select("+password +passwordResetToken +passwordResetExpires");
-
-    if (!user) {
-      res.status(400).json({
-        success: false,
-        message: "This reset link is invalid or has expired",
-      });
-      return;
-    }
-
-    user.password = await bcrypt.hash(newPassword as string, 12);
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-
-    const authToken = createAuthToken(String(user._id));
-    setAuthCookie(res, authToken);
-
-    res.status(200).json({
-      success: true,
-      message: "Password reset successfully",
-      user: publicUser(user),
     });
   } catch (error) {
     next(error);
