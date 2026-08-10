@@ -40,7 +40,7 @@ The product is built around a simple monthly workflow:
 
 ## Architecture
 
-![Architecture](docs/architecture.svg)
+![Architecture](server/docs/architecture.svg)
 
 The React frontend talks to an Express API. The API owns authentication, validation, ownership checks, and period locks before reading or writing MongoDB.
 
