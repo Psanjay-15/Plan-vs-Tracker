@@ -253,6 +253,37 @@ const getClient = () => {
   });
 };
 
+const MONEY_FIELDS = new Set([
+  "amount",
+  "plan",
+  "actual",
+  "variance",
+  "totalPlan",
+  "totalActual",
+  "totalVariance",
+]);
+
+const convertMoneyForModel = (value: unknown, key?: string): unknown => {
+  if (typeof value === "number" && key && MONEY_FIELDS.has(key)) {
+    return Number((value / 100).toFixed(2));
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => convertMoneyForModel(item));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [
+        entryKey,
+        convertMoneyForModel(entryValue, entryKey),
+      ]),
+    );
+  }
+
+  return value;
+};
+
 export const askAssistant = async (
   userId: string,
   message: string,
@@ -266,16 +297,18 @@ export const askAssistant = async (
   const messages: ChatCompletionMessageParam[] = [
     {
       role: "system",
-      content: `You are the Plan vs Actual financial assistant for ${user.name}. Today is ${today}. The user's currency is ${currency.currency}; tool amounts in stored data are integer minor units and must be divided by 100 when presented.
+      content: `You are the Plan vs Actual financial assistant for ${user.name}. Today is ${today}. The user's currency is ${currency.currency}. All monetary values returned by read tools are already in major currency units and must be presented exactly as returned.
 
 Rules:
 - Use tools for every claim about their data. Never invent values.
 - Read with list_categories, list_plans, list_period_locks, get_plan_vs_actual, and list_actual_entries.
 - For any create/update/delete/lock change, ONLY use the matching propose_* tool. Those tools never write immediately; the UI asks the human to confirm first.
 - Never claim that a write already succeeded.
+- Period locks are permanent in this version. There is no unlock operation, so never offer or suggest unlocking a month.
 - You CAN create new categories with propose_create_category. Do not say categories must already exist.
 - If a write request is missing required fields, ask for the missing values.
 - Keep answers concise and calculation-focused. Mention when no matching data exists.
+- Format monetary values using the user's currency symbol, grouping separators, and exactly 2 decimal places.
 - When you use get_plan_vs_actual, the UI can show charts automatically. Keep your text short and point users to the visuals when helpful.`,
     },
     ...history.slice(-10),
@@ -347,7 +380,7 @@ Rules:
         messages.push({
           role: "tool",
           tool_call_id: call.id,
-          content: JSON.stringify(output.result),
+          content: JSON.stringify(convertMoneyForModel(output.result)),
         });
       } catch (error) {
         messages.push({
