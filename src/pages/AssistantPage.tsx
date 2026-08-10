@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { AssistantChatPanel } from "../components/assistant/AssistantChatPanel";
 import { AssistantSessionSidebar } from "../components/assistant/AssistantSessionSidebar";
@@ -104,6 +104,11 @@ const ChatPane = styled.div`
 export function AssistantPage() {
   const { startNewChat } = useAssistantChat();
   const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    startNewChat();
+    setShowHistory(false);
+  }, [startNewChat]);
 
   const suggestions = useMemo(
     () => [

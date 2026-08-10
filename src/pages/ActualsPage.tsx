@@ -751,7 +751,7 @@ export function ActualsPage() {
     <>
       <PageHeader
         title="Actuals"
-        description="Record real spending and review where money was used during each month."
+        description="Record real spending and review where money was used during each month. Email alerts go to your account when a category or month nears or exceeds its plan."
         action={
           <HeaderActions>
             <Button

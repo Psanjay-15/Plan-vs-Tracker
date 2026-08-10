@@ -400,7 +400,14 @@ export function AssistantChatLauncher() {
       return;
     }
 
-    setIsOpen((current) => !current);
+    setIsOpen((current) => {
+      const next = !current;
+      if (next) {
+        startNewChat();
+        setShowHistory(false);
+      }
+      return next;
+    });
   };
 
   return (
