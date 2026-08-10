@@ -1,5 +1,15 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
+import { CategorySpendChart, toCategorySpendPoints } from "../components/charts/CategorySpendChart";
+import { CHART_COLORS } from "../components/charts/chartTheme";
+import {
+  MonthlyVarianceChart,
+  toMonthlyVariancePoints,
+} from "../components/charts/MonthlyVarianceChart";
+import {
+  PlanActualBarChart,
+  toMonthlyPlanActualPoints,
+} from "../components/charts/PlanActualBarChart";
 import { AppIcon } from "../components/common/AppIcon";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
@@ -157,9 +167,20 @@ const VarianceValue = styled.strong<{ $value: number }>`
         : "var(--color-text)"};
 `;
 
-const ChartCard = styled(Card)`
+const ChartGrid = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: var(--space-4);
   margin-bottom: var(--space-6);
-  padding: var(--space-6);
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ChartCard = styled(Card)`
+  margin-bottom: 0;
+  padding: var(--space-5);
 
   h2 {
     margin-bottom: var(--space-1);
@@ -167,62 +188,17 @@ const ChartCard = styled(Card)`
   }
 
   > p {
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--space-4);
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
   }
-`;
-
-const ChartRows = styled.div`
-  display: grid;
-  gap: var(--space-4);
-`;
-
-const ChartRow = styled.div`
-  display: grid;
-  grid-template-columns: 90px minmax(120px, 1fr) minmax(90px, auto);
-  align-items: center;
-  gap: var(--space-4);
-
-  @media (max-width: 520px) {
-    grid-template-columns: 70px minmax(90px, 1fr);
-
-    > strong:last-child {
-      grid-column: 2;
-      font-size: var(--font-size-xs);
-    }
-  }
-`;
-
-const ChartMonth = styled.strong`
-  font-size: var(--font-size-sm);
-`;
-
-const VarianceTrack = styled.div`
-  position: relative;
-  height: 1.75rem;
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(to right, transparent calc(50% - 0.5px), var(--color-border-strong) calc(50% - 0.5px), var(--color-border-strong) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
-    var(--color-surface-subtle);
-`;
-
-const VarianceBar = styled.span<{ $positive: boolean; $width: number }>`
-  position: absolute;
-  top: 0.35rem;
-  ${({ $positive }) => ($positive ? "left: 50%;" : "right: 50%;")}
-  width: ${({ $width }) => `${Math.max($width, 1.5)}%`};
-  height: 1.05rem;
-  border-radius: var(--radius-sm);
-  background: ${({ $positive }) =>
-    $positive ? "var(--color-danger-600)" : "var(--color-success-600)"};
 `;
 
 const ChartLegend = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
-  margin-top: var(--space-5);
+  margin-top: var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 
@@ -238,6 +214,29 @@ const ChartLegend = styled.div`
 
   span:last-child::before {
     background: var(--color-danger-600);
+  }
+`;
+
+const CategoryLegend = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  margin-top: var(--space-2);
+`;
+
+const CategoryLegendItem = styled.span<{ $color: string }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+
+  &::before {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-full);
+    background: ${({ $color }) => $color};
+    content: "";
   }
 `;
 
@@ -610,10 +609,6 @@ export function ReportPage() {
 
   const rangeInvalid = startMonth > endMonth;
   const summary = report?.summary;
-  const largestMonthlyVariance = Math.max(
-    1,
-    ...(report?.monthlyTotals.map((total) => Math.abs(total.variance)) ?? []),
-  );
 
   return (
     <ReportShell>
@@ -736,27 +731,51 @@ export function ReportPage() {
             </SummaryCard>
           </SummaryGrid>
 
-          <ChartCard>
+          <ChartGrid>
+            <ChartCard>
+              <h2>Plan vs actual by month</h2>
+              <p>Compare monthly targets with recorded spending.</p>
+              <PlanActualBarChart
+                data={toMonthlyPlanActualPoints(report.monthlyTotals)}
+                formatAmount={formatAmount}
+                height={260}
+              />
+            </ChartCard>
+
+            <ChartCard>
+              <h2>Spending by category</h2>
+              <p>Share of actual spend across categories in this range.</p>
+              <CategorySpendChart
+                data={toCategorySpendPoints(report.rows)}
+                formatAmount={formatAmount}
+                height={220}
+              />
+              <CategoryLegend>
+                {toCategorySpendPoints(report.rows)
+                  .filter((item) => item.value > 0)
+                  .slice(0, 6)
+                  .map((item, index) => (
+                    <CategoryLegendItem
+                      key={item.name}
+                      $color={
+                        CHART_COLORS.palette[index % CHART_COLORS.palette.length]
+                      }
+                    >
+                      {item.name}
+                    </CategoryLegendItem>
+                  ))}
+              </CategoryLegend>
+            </ChartCard>
+          </ChartGrid>
+
+          <ChartCard style={{ marginBottom: "var(--space-6)" }}>
             <h2>Monthly net variance</h2>
-            <p>Actual minus plan for each month in the selected range.</p>
-            <ChartRows role="img" aria-label="Monthly net variance chart">
-              {report.monthlyTotals.map((total) => (
-                <ChartRow key={total.month}>
-                  <ChartMonth>{formatMonth(total.month)}</ChartMonth>
-                  <VarianceTrack>
-                    {total.variance !== 0 ? (
-                      <VarianceBar
-                        $positive={total.variance > 0}
-                        $width={(Math.abs(total.variance) / largestMonthlyVariance) * 50}
-                      />
-                    ) : null}
-                  </VarianceTrack>
-                  <TableVariance $value={total.variance}>
-                    {formatSignedAmount(total.variance)}
-                  </TableVariance>
-                </ChartRow>
-              ))}
-            </ChartRows>
+            <p>Actual minus plan for each month. Green is under plan, red is over plan.</p>
+            <MonthlyVarianceChart
+              data={toMonthlyVariancePoints(report.monthlyTotals)}
+              formatSignedAmount={formatSignedAmount}
+              height={240}
+            />
             <ChartLegend>
               <span>Under plan</span>
               <span>Over plan</span>

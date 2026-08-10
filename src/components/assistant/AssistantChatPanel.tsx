@@ -1,10 +1,15 @@
 import { type FormEvent, Fragment, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
+import { AssistantCharts } from "./AssistantCharts";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { AppIcon } from "../common/AppIcon";
 import { Button } from "../common/Button";
 import { confirmAssistantAction, sendAssistantMessage } from "../../services/assistant.service";
-import type { AssistantMessage, PendingAssistantAction } from "../../types/assistant";
+import type {
+  AssistantChart,
+  AssistantMessage,
+  PendingAssistantAction,
+} from "../../types/assistant";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 
 const Shell = styled.section<{ $compact?: boolean }>`
@@ -86,7 +91,7 @@ const MessageRow = styled.div<{ $role: "user" | "assistant" }>`
 `;
 
 const Bubble = styled.div<{ $role: "user" | "assistant" }>`
-  max-width: min(88%, 520px);
+  max-width: min(92%, 560px);
   padding: 0.75rem 0.9rem;
   border: 1px solid
     ${({ $role }) =>
@@ -180,10 +185,12 @@ const ErrorText = styled.p`
 const makeMessage = (
   role: AssistantMessage["role"],
   content: string,
+  charts?: AssistantChart[],
 ): AssistantMessage => ({
   id: crypto.randomUUID(),
   role,
   content,
+  ...(charts && charts.length > 0 ? { charts } : {}),
 });
 
 interface AssistantChatPanelProps {
@@ -237,7 +244,7 @@ export function AssistantChatPanel({
       onMessagesChange([
         ...history,
         userMessage,
-        makeMessage("assistant", response.message),
+        makeMessage("assistant", response.message, response.charts),
       ]);
       onPendingActionChange(response.pendingAction ?? null);
     } catch (requestError) {
@@ -311,7 +318,12 @@ export function AssistantChatPanel({
           <MessageRow key={message.id} $role={message.role}>
             <Bubble $role={message.role}>
               {message.role === "assistant" ? (
-                <AssistantMarkdown content={message.content} />
+                <>
+                  <AssistantMarkdown content={message.content} />
+                  {message.charts ? (
+                    <AssistantCharts charts={message.charts} />
+                  ) : null}
+                </>
               ) : (
                 message.content
               )}

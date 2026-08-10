@@ -2,6 +2,28 @@ export interface AssistantMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  charts?: AssistantChart[];
+}
+
+export type AssistantChartType =
+  | "plan_actual_bars"
+  | "monthly_variance"
+  | "category_spend";
+
+export interface AssistantChartPoint {
+  key: string;
+  label: string;
+  plan?: number;
+  actual?: number;
+  variance?: number;
+  value?: number;
+}
+
+export interface AssistantChart {
+  id: string;
+  title: string;
+  type: AssistantChartType;
+  points: AssistantChartPoint[];
 }
 
 export type AssistantActionType =
@@ -27,4 +49,5 @@ export interface AssistantChatResponse {
   success: boolean;
   message: string;
   pendingAction?: PendingAssistantAction;
+  charts?: AssistantChart[];
 }
