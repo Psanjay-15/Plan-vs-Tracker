@@ -1,5 +1,10 @@
 import bcrypt from "bcryptjs";
 import type { NextFunction, Request, Response } from "express";
+import {
+  DEFAULT_COUNTRY_CODE,
+  getCountryCurrency,
+  isValidCountryCode,
+} from "../constants/currencies";
 import Category from "../models/Category";
 import User from "../models/User";
 import {
@@ -15,13 +20,22 @@ const publicUser = (user: {
   _id: unknown;
   name: string;
   email: string;
+  countryCode?: string;
   createdAt: Date;
-}) => ({
-  id: String(user._id),
-  name: user.name,
-  email: user.email,
-  createdAt: user.createdAt,
-});
+}) => {
+  const country = getCountryCurrency(user.countryCode);
+
+  return {
+    id: String(user._id),
+    name: user.name,
+    email: user.email,
+    countryCode: country.code,
+    currency: country.currency,
+    currencyName: country.currencyName,
+    locale: country.locale,
+    createdAt: user.createdAt,
+  };
+};
 
 export const signup = async (
   req: Request,
@@ -29,7 +43,10 @@ export const signup = async (
   next: NextFunction,
 ) => {
   try {
-    const { name, email, password } = req.body as Record<string, unknown>;
+    const { name, email, password, countryCode } = req.body as Record<
+      string,
+      unknown
+    >;
 
     if (typeof name !== "string" || name.trim().length < 2) {
       res.status(400).json({
@@ -55,6 +72,19 @@ export const signup = async (
       return;
     }
 
+    const selectedCountryCode =
+      countryCode === undefined || countryCode === null || countryCode === ""
+        ? DEFAULT_COUNTRY_CODE
+        : countryCode;
+
+    if (!isValidCountryCode(selectedCountryCode)) {
+      res.status(400).json({
+        success: false,
+        message: "Select a supported country",
+      });
+      return;
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
     const existingUser = await User.exists({ email: normalizedEmail });
 
@@ -71,6 +101,7 @@ export const signup = async (
       name: name.trim(),
       email: normalizedEmail,
       password: hashedPassword,
+      countryCode: selectedCountryCode,
     });
 
     try {
@@ -167,6 +198,47 @@ export const getCurrentUser = async (
 
     res.status(200).json({
       success: true,
+      user: publicUser(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updatePreferences = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { countryCode } = req.body as Record<string, unknown>;
+
+    if (!isValidCountryCode(countryCode)) {
+      res.status(400).json({
+        success: false,
+        message: "Select a supported country",
+      });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { countryCode },
+      { new: true, runValidators: true },
+    );
+
+    if (!user) {
+      clearAuthCookie(res);
+      res.status(401).json({
+        success: false,
+        message: "User account no longer exists",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Preferences updated successfully",
       user: publicUser(user),
     });
   } catch (error) {
