@@ -3,7 +3,7 @@
 Set monthly spending plans by category, record actual spend, and compare the two with clear variance — including month locking so closed periods stay read-only.
 
 **Live app:** [https://plan-vs-tracker-frontend.vercel.app](https://plan-vs-tracker-frontend.vercel.app)  
-**API:** [https://plan-vs-tracker.onrender.com](https://plan-vs-tracker.onrender.com)
+
 
 ---
 
