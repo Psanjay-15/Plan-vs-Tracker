@@ -4,11 +4,18 @@ import styled from "styled-components";
 import { AppIcon } from "../components/common/AppIcon";
 import { Card } from "../components/common/Card";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  SkeletonCard,
+  SkeletonPulse,
+  SkeletonRow,
+} from "../components/common/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { useCurrency } from "../hooks/useCurrency";
+import { actualService } from "../services/actual.service";
 import { categoryService } from "../services/category.service";
 import { periodLockService } from "../services/period-lock.service";
 import { reportService } from "../services/report.service";
+import type { Actual } from "../types/actual";
 import type { Category } from "../types/category";
 import type { PeriodLock } from "../types/period-lock";
 import type { ReportResponse, ReportRow } from "../types/report";
@@ -228,6 +235,24 @@ const SummaryGrid = styled.div`
 
   @media (max-width: 380px) {
     grid-template-columns: 1fr;
+  }
+`;
+
+const OverviewSkeleton = styled.div`
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+`;
+
+const SkeletonSummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+
+  @media (max-width: 1000px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 `;
 
@@ -513,10 +538,10 @@ const ProgressHint = styled.p`
   font-size: 0.7rem !important;
 `;
 
-const QuickActionsCard = styled(Card)`
+const ActivityCard = styled(Card)`
   display: flex;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
   flex-direction: column;
   padding: 0.85rem 1rem;
   overflow: hidden;
@@ -528,44 +553,30 @@ const QuickActionsCard = styled(Card)`
   }
 `;
 
-const QuickActions = styled.div`
+const ActivityList = styled.div`
   display: grid;
   min-height: 0;
   flex: 1;
   align-content: start;
   gap: 0.45rem;
   overflow: auto;
-
-  @media (min-width: 521px) and (max-width: 960px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 `;
 
-const QuickAction = styled(Link)<{ $featured?: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 0.55rem 0.75rem;
-  border: 1px solid
-    ${({ $featured }) =>
-      $featured ? "rgb(185 79 39 / 30%)" : "var(--color-border)"};
+const ActivityItem = styled.div`
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: ${({ $featured }) =>
-    $featured ? "var(--color-primary-50)" : "transparent"};
-  color: ${({ $featured }) =>
-    $featured ? "var(--color-primary-700)" : "var(--color-text)"};
-  font-size: var(--font-size-xs);
-  font-weight: 650;
-  text-decoration: none;
+  background: var(--color-surface-subtle);
 
-  span:last-child {
-    color: var(--color-primary-600);
+  strong {
+    font-size: var(--font-size-xs);
   }
 
-  &:hover {
-    border-color: var(--color-primary-500);
-    background: var(--color-primary-50);
+  span {
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
   }
 `;
 
@@ -616,14 +627,13 @@ const SecondaryLink = styled(PrimaryLink)`
   color: var(--color-text);
 `;
 
-const LoadingCard = styled(Card)`
-  display: grid;
-  flex: 1;
-  place-items: center;
-  padding: var(--space-8);
-  color: var(--color-text-muted);
-  text-align: center;
-`;
+const formatShortDate = (value: string) =>
+  new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 
 const currentMonth = () => {
   const date = new Date();
@@ -653,6 +663,7 @@ export function DashboardPage() {
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [locks, setLocks] = useState<PeriodLock[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [recentActuals, setRecentActuals] = useState<Actual[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -663,12 +674,22 @@ export function DashboardPage() {
       reportService.getPlanVsActual({ startMonth: month, endMonth: month }),
       periodLockService.getAll(),
       categoryService.getAll(),
+      actualService.getAll(),
     ])
-      .then(([reportResult, lockResult, categoryResult]) => {
+      .then(([reportResult, lockResult, categoryResult, actualResult]) => {
         if (!isActive) return;
         setReport(reportResult);
         setLocks(lockResult);
         setCategories(categoryResult);
+        setRecentActuals(
+          [...actualResult]
+            .sort(
+              (first, second) =>
+                new Date(second.createdAt).getTime() -
+                new Date(first.createdAt).getTime(),
+            )
+            .slice(0, 20),
+        );
       })
       .catch((requestError) => {
         if (isActive) {
@@ -688,6 +709,10 @@ export function DashboardPage() {
     () => getSortedRows(report?.rows ?? []),
     [report],
   );
+  const categoryNames = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories],
+  );
   const summary = report?.summary;
   const isLocked = locks.some((lock) => lock.month === month);
   const remaining = (summary?.totalPlan ?? 0) - (summary?.totalActual ?? 0);
@@ -697,6 +722,35 @@ export function DashboardPage() {
     : summary?.totalActual
       ? 100
       : 0;
+
+  const recentActivity = useMemo(() => {
+    const actualItems = recentActuals.map((actual) => ({
+      id: `actual-${actual.id}`,
+      title: `${categoryNames.get(actual.categoryId) ?? "Category"} · ${formatAmount(actual.amount)}`,
+      detail: `${formatMonth(actual.month)}${actual.note ? ` · ${actual.note}` : ""}`,
+      at: actual.createdAt,
+    }));
+
+    const lockItems = [...locks]
+      .sort(
+        (first, second) =>
+          new Date(second.lockedAt).getTime() - new Date(first.lockedAt).getTime(),
+      )
+      .slice(0, 20)
+      .map((lock) => ({
+        id: `lock-${lock.id}`,
+        title: `Locked ${formatMonth(lock.month)}`,
+        detail: "Period closed for edits",
+        at: lock.lockedAt,
+      }));
+
+    return [...actualItems, ...lockItems]
+      .sort(
+        (first, second) =>
+          new Date(second.at).getTime() - new Date(first.at).getTime(),
+      )
+      .slice(0, 20);
+  }, [categoryNames, formatAmount, locks, recentActuals]);
 
   return (
     <OverviewShell>
@@ -750,7 +804,38 @@ export function DashboardPage() {
       </AssistantSpotlight>
 
       {isLoading ? (
-        <LoadingCard>Loading your financial overview...</LoadingCard>
+        <OverviewSkeleton>
+          <SkeletonSummaryGrid>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonCard key={index}>
+                <SkeletonPulse $height="0.75rem" $width="40%" />
+                <SkeletonPulse $height="1.5rem" $width="70%" />
+                <SkeletonPulse $height="0.7rem" $width="55%" />
+              </SkeletonCard>
+            ))}
+          </SkeletonSummaryGrid>
+          <SkeletonCard style={{ flex: 1 }}>
+            <SkeletonPulse $height="1rem" $width="30%" />
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+          </SkeletonCard>
+        </OverviewSkeleton>
       ) : report && summary ? (
         <OverviewBody>
           <SummaryGrid>
@@ -905,31 +990,26 @@ export function DashboardPage() {
                 </ProgressHint>
               </ProgressCard>
 
-              <QuickActionsCard>
-                <h2>Quick actions</h2>
-                <QuickActions>
-                  <QuickAction $featured to="/dashboard/assistant">
-                    <span>Ask your data</span>
-                    <span>→</span>
-                  </QuickAction>
-                  <QuickAction to="/dashboard/plans">
-                    <span>Manage plans</span>
-                    <span>→</span>
-                  </QuickAction>
-                  <QuickAction to="/dashboard/actuals">
-                    <span>Record spending</span>
-                    <span>→</span>
-                  </QuickAction>
-                  <QuickAction to="/dashboard/report">
-                    <span>Open full report</span>
-                    <span>→</span>
-                  </QuickAction>
-                  <QuickAction to="/dashboard/period-locks">
-                    <span>Manage period</span>
-                    <span>→</span>
-                  </QuickAction>
-                </QuickActions>
-              </QuickActionsCard>
+              <ActivityCard>
+                <h2>Recent activity</h2>
+                <ActivityList>
+                  {recentActivity.length > 0 ? (
+                    recentActivity.map((item) => (
+                      <ActivityItem key={item.id}>
+                        <strong>{item.title}</strong>
+                        <span>
+                          {item.detail} · {formatShortDate(item.at)}
+                        </span>
+                      </ActivityItem>
+                    ))
+                  ) : (
+                    <ActivityItem>
+                      <strong>No recent activity yet</strong>
+                      <span>Record spending or lock a month to see it here.</span>
+                    </ActivityItem>
+                  )}
+                </ActivityList>
+              </ActivityCard>
             </OverviewRail>
           </MainGrid>
         </OverviewBody>

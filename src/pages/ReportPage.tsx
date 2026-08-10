@@ -14,6 +14,11 @@ import { AppIcon } from "../components/common/AppIcon";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  SkeletonCard,
+  SkeletonPulse,
+  SkeletonRow,
+} from "../components/common/Skeleton";
 import { useCurrency } from "../hooks/useCurrency";
 import { actualService } from "../services/actual.service";
 import { categoryService } from "../services/category.service";
@@ -23,6 +28,8 @@ import type { Category } from "../types/category";
 import type { ReportResponse } from "../types/report";
 import { downloadTextFile } from "../utils/download";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
+
+type ChartView = "bars" | "variance" | "category";
 
 const ErrorBanner = styled.div`
   margin-bottom: var(--space-6);
@@ -169,12 +176,44 @@ const VarianceValue = styled.strong<{ $value: number }>`
 
 const ChartGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: 1fr;
   gap: var(--space-4);
   margin-bottom: var(--space-6);
+`;
 
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
+const ChartToolbar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+`;
+
+const ChartToggleGroup = styled.div`
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+`;
+
+const ChartToggle = styled.button<{ $active: boolean }>`
+  padding: 0.45rem 0.8rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: ${({ $active }) =>
+    $active ? "var(--color-primary-600)" : "transparent"};
+  color: ${({ $active }) => ($active ? "#ffffff" : "var(--color-text-muted)")};
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    color: ${({ $active }) =>
+      $active ? "#ffffff" : "var(--color-text)"};
   }
 `;
 
@@ -240,6 +279,21 @@ const CategoryLegendItem = styled.span<{ $color: string }>`
   }
 `;
 
+const ReportSkeleton = styled.div`
+  display: grid;
+  gap: var(--space-4);
+`;
+
+const SkeletonSummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+`;
+
 const TableCard = styled(Card)`
   overflow: hidden;
   margin-bottom: var(--space-6);
@@ -268,13 +322,15 @@ const TableHeader = styled.div`
 `;
 
 const TableScroll = styled.div`
-  overflow-x: auto;
+  max-height: min(520px, 60vh);
+  overflow: auto;
 `;
 
 const Table = styled.table`
   width: 100%;
   min-width: 860px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 
   th,
   td {
@@ -285,12 +341,16 @@ const Table = styled.table`
   }
 
   th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     background: var(--color-surface-subtle);
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    box-shadow: inset 0 -1px 0 var(--color-border);
   }
 
   th:nth-child(n + 3):not(:last-child),
@@ -411,12 +471,6 @@ const StatusBadge = styled.span<{ $locked: boolean }>`
   font-weight: 700;
 `;
 
-const LoadingState = styled(Card)`
-  padding: var(--space-12);
-  color: var(--color-text-muted);
-  text-align: center;
-`;
-
 const EmptyState = styled(Card)`
   padding: var(--space-12) var(--space-6);
   color: var(--color-text-muted);
@@ -491,6 +545,7 @@ export function ReportPage() {
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [chartView, setChartView] = useState<ChartView>("bars");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [drillEntries, setDrillEntries] = useState<Actual[]>([]);
   const [isDrillLoading, setIsDrillLoading] = useState(false);
@@ -697,7 +752,36 @@ export function ReportPage() {
       </RulesNote>
 
       {isLoading && !rangeInvalid ? (
-        <LoadingState>Calculating report...</LoadingState>
+        <ReportSkeleton>
+          <SkeletonSummaryGrid>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonCard key={index}>
+                <SkeletonPulse $height="0.8rem" $width="45%" />
+                <SkeletonPulse $height="1.6rem" $width="70%" />
+                <SkeletonPulse $height="0.7rem" $width="55%" />
+              </SkeletonCard>
+            ))}
+          </SkeletonSummaryGrid>
+          <SkeletonCard>
+            <SkeletonPulse $height="1rem" $width="35%" />
+            <SkeletonPulse $height="220px" />
+          </SkeletonCard>
+          <SkeletonCard>
+            <SkeletonPulse $height="1rem" $width="30%" />
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+          </SkeletonCard>
+        </ReportSkeleton>
       ) : report && report.rows.length > 0 && summary && !rangeInvalid ? (
         <>
           <SummaryGrid>
@@ -733,54 +817,98 @@ export function ReportPage() {
 
           <ChartGrid>
             <ChartCard>
-              <h2>Plan vs actual by month</h2>
-              <p>Compare monthly targets with recorded spending.</p>
-              <PlanActualBarChart
-                data={toMonthlyPlanActualPoints(report.monthlyTotals)}
-                formatAmount={formatAmount}
-                height={260}
-              />
-            </ChartCard>
+              <ChartToolbar>
+                <div>
+                  <h2>
+                    {chartView === "bars"
+                      ? "Plan vs actual by month"
+                      : chartView === "variance"
+                        ? "Monthly net variance"
+                        : "Spending by category"}
+                  </h2>
+                  <p>
+                    {chartView === "bars"
+                      ? "Compare monthly targets with recorded spending."
+                      : chartView === "variance"
+                        ? "Actual minus plan for each month. Green is under plan, red is over plan."
+                        : "Share of actual spend across categories in this range."}
+                  </p>
+                </div>
+                <ChartToggleGroup role="tablist" aria-label="Chart type">
+                  <ChartToggle
+                    type="button"
+                    $active={chartView === "bars"}
+                    onClick={() => setChartView("bars")}
+                  >
+                    Bars
+                  </ChartToggle>
+                  <ChartToggle
+                    type="button"
+                    $active={chartView === "variance"}
+                    onClick={() => setChartView("variance")}
+                  >
+                    Variance
+                  </ChartToggle>
+                  <ChartToggle
+                    type="button"
+                    $active={chartView === "category"}
+                    onClick={() => setChartView("category")}
+                  >
+                    Category
+                  </ChartToggle>
+                </ChartToggleGroup>
+              </ChartToolbar>
 
-            <ChartCard>
-              <h2>Spending by category</h2>
-              <p>Share of actual spend across categories in this range.</p>
-              <CategorySpendChart
-                data={toCategorySpendPoints(report.rows)}
-                formatAmount={formatAmount}
-                height={220}
-              />
-              <CategoryLegend>
-                {toCategorySpendPoints(report.rows)
-                  .filter((item) => item.value > 0)
-                  .slice(0, 6)
-                  .map((item, index) => (
-                    <CategoryLegendItem
-                      key={item.name}
-                      $color={
-                        CHART_COLORS.palette[index % CHART_COLORS.palette.length]
-                      }
-                    >
-                      {item.name}
-                    </CategoryLegendItem>
-                  ))}
-              </CategoryLegend>
+              {chartView === "bars" ? (
+                <PlanActualBarChart
+                  data={toMonthlyPlanActualPoints(report.monthlyTotals)}
+                  formatAmount={formatAmount}
+                  height={280}
+                />
+              ) : null}
+
+              {chartView === "variance" ? (
+                <>
+                  <MonthlyVarianceChart
+                    data={toMonthlyVariancePoints(report.monthlyTotals)}
+                    formatSignedAmount={formatSignedAmount}
+                    height={280}
+                  />
+                  <ChartLegend>
+                    <span>Under plan</span>
+                    <span>Over plan</span>
+                  </ChartLegend>
+                </>
+              ) : null}
+
+              {chartView === "category" ? (
+                <>
+                  <CategorySpendChart
+                    data={toCategorySpendPoints(report.rows)}
+                    formatAmount={formatAmount}
+                    height={260}
+                  />
+                  <CategoryLegend>
+                    {toCategorySpendPoints(report.rows)
+                      .filter((item) => item.value > 0)
+                      .slice(0, 8)
+                      .map((item, index) => (
+                        <CategoryLegendItem
+                          key={item.name}
+                          $color={
+                            CHART_COLORS.palette[
+                              index % CHART_COLORS.palette.length
+                            ]
+                          }
+                        >
+                          {item.name}
+                        </CategoryLegendItem>
+                      ))}
+                  </CategoryLegend>
+                </>
+              ) : null}
             </ChartCard>
           </ChartGrid>
-
-          <ChartCard style={{ marginBottom: "var(--space-6)" }}>
-            <h2>Monthly net variance</h2>
-            <p>Actual minus plan for each month. Green is under plan, red is over plan.</p>
-            <MonthlyVarianceChart
-              data={toMonthlyVariancePoints(report.monthlyTotals)}
-              formatSignedAmount={formatSignedAmount}
-              height={240}
-            />
-            <ChartLegend>
-              <span>Under plan</span>
-              <span>Over plan</span>
-            </ChartLegend>
-          </ChartCard>
 
           <TableCard>
             <TableHeader>

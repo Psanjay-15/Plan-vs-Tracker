@@ -14,12 +14,19 @@ import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  SkeletonCard,
+  SkeletonPulse,
+  SkeletonRow,
+} from "../components/common/Skeleton";
 import { useCurrency } from "../hooks/useCurrency";
+import { useToast } from "../hooks/useToast";
 import { actualService } from "../services/actual.service";
 import { categoryService } from "../services/category.service";
+import { periodLockService } from "../services/period-lock.service";
 import type { Actual, ActualCsvImportError } from "../types/actual";
 import type { Category } from "../types/category";
-import { downloadBlob, downloadTextFile } from "../utils/download";
+import { downloadBlob } from "../utils/download";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
 
 const ErrorBanner = styled.div`
@@ -40,6 +47,17 @@ const SuccessBanner = styled.div`
   background: #edf8f1;
   color: #0f6a42;
   font-size: var(--font-size-sm);
+`;
+
+const LockedNotice = styled.div`
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #e7c989;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-50);
+  color: var(--color-warning-600);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
 `;
 
 const HeaderActions = styled.div`
@@ -82,12 +100,6 @@ const CsvHint = styled.p`
     background: var(--color-surface-subtle);
     font-size: 0.92em;
   }
-`;
-
-const ACTUALS_CSV_TEMPLATE = `month,category,amount,note
-2026-01,Marketing,4800,January search ads
-2026-01,Payroll,20500,
-2026-02,Payroll,19800,February payroll
 `;
 
 const FilterCard = styled(Card)`
@@ -304,13 +316,15 @@ const TableHeader = styled.div`
 `;
 
 const TableScroll = styled.div`
-  overflow-x: auto;
+  max-height: min(560px, 65vh);
+  overflow: auto;
 `;
 
 const Table = styled.table`
   width: 100%;
   min-width: 820px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 
   th,
   td {
@@ -321,12 +335,16 @@ const Table = styled.table`
   }
 
   th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     background: var(--color-surface-subtle);
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    box-shadow: inset 0 -1px 0 var(--color-border);
   }
 
   th:nth-child(4),
@@ -394,6 +412,11 @@ const TextButton = styled.button<{ $danger?: boolean }>`
     background: ${({ $danger }) =>
       $danger ? "var(--color-danger-50)" : "var(--color-primary-50)"};
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 `;
 
 const EditPanel = styled.form`
@@ -440,12 +463,6 @@ const EmptyState = styled.div`
   }
 `;
 
-const LoadingState = styled.div`
-  padding: var(--space-12);
-  color: var(--color-text-muted);
-  text-align: center;
-`;
-
 const currentMonth = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -474,10 +491,12 @@ const sortActuals = (actuals: Actual[]) =>
 
 export function ActualsPage() {
   const { formatAmount } = useCurrency();
+  const toast = useToast();
   const [month, setMonth] = useState(currentMonth);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [actuals, setActuals] = useState<Actual[]>([]);
+  const [lockedMonths, setLockedMonths] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
@@ -505,15 +524,17 @@ export function ActualsPage() {
   );
 
   const reloadActuals = async () => {
-    const [categoryResult, actualResult] = await Promise.all([
+    const [categoryResult, actualResult, lockResult] = await Promise.all([
       categoryService.getAll(),
       actualService.getAll({
         month,
         ...(categoryFilter ? { categoryId: categoryFilter } : {}),
       }),
+      periodLockService.getAll(),
     ]);
     setCategories(categoryResult);
     setActuals(sortActuals(actualResult));
+    setLockedMonths(new Set(lockResult.map((lock) => lock.month)));
   };
 
   useEffect(() => {
@@ -525,11 +546,13 @@ export function ActualsPage() {
         month,
         ...(categoryFilter ? { categoryId: categoryFilter } : {}),
       }),
+      periodLockService.getAll(),
     ])
-      .then(([categoryResult, actualResult]) => {
+      .then(([categoryResult, actualResult, lockResult]) => {
         if (!isActive) return;
         setCategories(categoryResult);
         setActuals(sortActuals(actualResult));
+        setLockedMonths(new Set(lockResult.map((lock) => lock.month)));
       })
       .catch((error) => {
         if (isActive) {
@@ -546,6 +569,8 @@ export function ActualsPage() {
   }, [categoryFilter, month]);
 
   const total = actuals.reduce((sum, actual) => sum + actual.amount, 0);
+  const isSelectedMonthLocked = lockedMonths.has(month);
+  const isNewMonthLocked = lockedMonths.has(newMonth);
 
   const openCreateForm = () => {
     setIsCreateOpen(true);
@@ -568,15 +593,12 @@ export function ActualsPage() {
       });
       downloadBlob(blob, `actuals-${month}.csv`);
       setPageSuccess(`Exported ${actuals.length} actual entr${actuals.length === 1 ? "y" : "ies"} for ${formatMonth(month)}.`);
+      toast.success(`Exported actuals for ${formatMonth(month)}.`);
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to export actuals CSV."));
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const handleDownloadTemplate = () => {
-    downloadTextFile(ACTUALS_CSV_TEMPLATE, "actuals-template.csv");
   };
 
   const handleImportClick = () => {
@@ -598,6 +620,7 @@ export function ActualsPage() {
       await reloadActuals();
       setImportErrors(result.errors ?? []);
       setPageSuccess(result.message);
+      toast.success(result.message);
     } catch (error) {
       const responseErrors = axios.isAxiosError<{ errors?: ActualCsvImportError[] }>(
         error,
@@ -652,6 +675,7 @@ export function ActualsPage() {
       setIsCreateOpen(false);
       setNewAmount("");
       setNewNote("");
+      toast.success("Actual entry created successfully.");
     } catch (error) {
       setFormError(getApiErrorMessage(error, "Unable to create actual entry."));
     } finally {
@@ -695,6 +719,7 @@ export function ActualsPage() {
         ),
       );
       setEditingId(null);
+      toast.success("Actual entry updated successfully.");
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to update actual entry."));
     } finally {
@@ -713,6 +738,7 @@ export function ActualsPage() {
         current.filter((actual) => actual.id !== actualToDelete.id),
       );
       setActualToDelete(null);
+      toast.success("Actual entry deleted successfully.");
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to delete actual entry."));
       setActualToDelete(null);
@@ -728,13 +754,6 @@ export function ActualsPage() {
         description="Record real spending and review where money was used during each month."
         action={
           <HeaderActions>
-            <Button
-              variant="secondary"
-              disabled={isExporting || isImporting}
-              onClick={handleDownloadTemplate}
-            >
-              CSV template
-            </Button>
             <Button
               variant="secondary"
               disabled={isExporting || isImporting}
@@ -807,6 +826,12 @@ export function ActualsPage() {
         </ErrorBanner>
       ) : null}
 
+      {isSelectedMonthLocked ? (
+        <LockedNotice role="status">
+          {formatMonth(month)} is locked. Actual entries for this month are read-only.
+        </LockedNotice>
+      ) : null}
+
       {isCreateOpen ? (
         <FormCard>
           <h2>Record actual spending</h2>
@@ -843,6 +868,9 @@ export function ActualsPage() {
                   setFormError("");
                 }}
               />
+              {isNewMonthLocked ? (
+                <FieldMessage $error>{formatMonth(newMonth)} is locked and cannot be modified</FieldMessage>
+              ) : null}
             </Field>
 
             <Field>
@@ -883,7 +911,7 @@ export function ActualsPage() {
                   {formError}
                 </FieldMessage>
               ) : null}
-              <Button type="submit" disabled={isCreating || categories.length === 0}>
+              <Button type="submit" disabled={isCreating || categories.length === 0 || isNewMonthLocked}>
                 {isCreating ? "Recording..." : "Record actual"}
               </Button>
             </FormFooter>
@@ -945,7 +973,26 @@ export function ActualsPage() {
         </TableHeader>
 
         {isLoading ? (
-          <LoadingState>Loading actuals...</LoadingState>
+          <SkeletonCard>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+          </SkeletonCard>
         ) : actuals.length === 0 ? (
           <EmptyState>
             <h3>No actual spending for this month</h3>
@@ -988,11 +1035,17 @@ export function ActualsPage() {
                         </td>
                         <td>
                           <RowActions>
-                            <TextButton onClick={() => startEditing(actual)}>
+                            <TextButton
+                              disabled={lockedMonths.has(actual.month)}
+                              title={lockedMonths.has(actual.month) ? `${formatMonth(actual.month)} is locked` : undefined}
+                              onClick={() => startEditing(actual)}
+                            >
                               Edit
                             </TextButton>
                             <TextButton
                               $danger
+                              disabled={lockedMonths.has(actual.month)}
+                              title={lockedMonths.has(actual.month) ? `${formatMonth(actual.month)} is locked` : undefined}
                               onClick={() => setActualToDelete(actual)}
                             >
                               Delete

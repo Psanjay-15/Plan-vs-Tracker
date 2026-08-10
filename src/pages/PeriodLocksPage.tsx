@@ -4,6 +4,12 @@ import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  SkeletonCard,
+  SkeletonPulse,
+  SkeletonRow,
+} from "../components/common/Skeleton";
+import { useToast } from "../hooks/useToast";
 import { periodLockService } from "../services/period-lock.service";
 import type { PeriodLock } from "../types/period-lock";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
@@ -188,12 +194,6 @@ const LockedBadge = styled.span`
   font-weight: 700;
 `;
 
-const LoadingState = styled.div`
-  padding: var(--space-12);
-  color: var(--color-text-muted);
-  text-align: center;
-`;
-
 const EmptyState = styled.div`
   padding: var(--space-12) var(--space-6);
   color: var(--color-text-muted);
@@ -234,6 +234,7 @@ const sortLocks = (locks: PeriodLock[]) =>
   [...locks].sort((first, second) => second.month.localeCompare(first.month));
 
 export function PeriodLocksPage() {
+  const toast = useToast();
   const [month, setMonth] = useState(currentMonth);
   const [locks, setLocks] = useState<PeriodLock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -282,6 +283,7 @@ export function PeriodLocksPage() {
         ]),
       );
       setMonthToLock(null);
+      toast.success(`${formatMonth(lock.month)} locked successfully.`);
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to lock this month."));
       setMonthToLock(null);
@@ -353,7 +355,23 @@ export function PeriodLocksPage() {
         </TableHeader>
 
         {isLoading ? (
-          <LoadingState>Loading locked months...</LoadingState>
+          <SkeletonCard>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+          </SkeletonCard>
         ) : locks.length === 0 ? (
           <EmptyState>
             <h3>No locked months</h3>

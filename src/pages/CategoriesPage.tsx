@@ -5,6 +5,12 @@ import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  SkeletonCard,
+  SkeletonPulse,
+  SkeletonRow,
+} from "../components/common/Skeleton";
+import { useToast } from "../hooks/useToast";
 import { categoryService } from "../services/category.service";
 import type { Category } from "../types/category";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
@@ -199,12 +205,6 @@ const EmptyState = styled.div`
   }
 `;
 
-const LoadingState = styled.div`
-  padding: var(--space-12);
-  color: var(--color-text-muted);
-  text-align: center;
-`;
-
 const InlineForm = styled.form`
   display: flex;
   align-items: center;
@@ -226,6 +226,7 @@ const formatDate = (value: string) =>
   }).format(new Date(value));
 
 export function CategoriesPage() {
+  const toast = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -280,6 +281,7 @@ export function CategoriesPage() {
       setCategories((current) => sortCategories([...current, category]));
       setNewName("");
       setIsCreateOpen(false);
+      toast.success("Category created successfully.");
     } catch (error) {
       setNameError(getApiErrorMessage(error, "Unable to create category."));
     } finally {
@@ -320,6 +322,7 @@ export function CategoriesPage() {
       );
       setEditingId(null);
       setEditingName("");
+      toast.success("Category updated successfully.");
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to update category."));
     } finally {
@@ -338,6 +341,7 @@ export function CategoriesPage() {
         current.filter((category) => category.id !== categoryToDelete.id),
       );
       setCategoryToDelete(null);
+      toast.success("Category deleted successfully.");
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to delete category."));
       setCategoryToDelete(null);
@@ -395,7 +399,23 @@ export function CategoriesPage() {
         </TableHeader>
 
         {isLoading ? (
-          <LoadingState>Loading categories...</LoadingState>
+          <SkeletonCard>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+          </SkeletonCard>
         ) : categories.length === 0 ? (
           <EmptyState>
             <h3>No categories yet</h3>

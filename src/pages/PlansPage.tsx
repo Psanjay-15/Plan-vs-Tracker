@@ -5,9 +5,16 @@ import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { PageHeader } from "../components/common/PageHeader";
+import {
+  SkeletonCard,
+  SkeletonPulse,
+  SkeletonRow,
+} from "../components/common/Skeleton";
 import { useCurrency } from "../hooks/useCurrency";
+import { useToast } from "../hooks/useToast";
 import { categoryService } from "../services/category.service";
 import { planService } from "../services/plan.service";
+import { periodLockService } from "../services/period-lock.service";
 import type { Category } from "../types/category";
 import type { Plan } from "../types/plan";
 import { getApiErrorMessage } from "../utils/getApiErrorMessage";
@@ -164,6 +171,17 @@ const FieldMessage = styled.span<{ $error?: boolean }>`
   font-size: var(--font-size-xs);
 `;
 
+const LockedNotice = styled.div`
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #e7c989;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-50);
+  color: var(--color-warning-600);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+`;
+
 const SubmitArea = styled.div`
   padding-top: 1.65rem;
 
@@ -197,13 +215,15 @@ const TableHeader = styled.div`
 `;
 
 const TableScroll = styled.div`
-  overflow-x: auto;
+  max-height: min(560px, 65vh);
+  overflow: auto;
 `;
 
 const Table = styled.table`
   width: 100%;
   min-width: 720px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 
   th,
   td {
@@ -214,12 +234,16 @@ const Table = styled.table`
   }
 
   th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     background: var(--color-surface-subtle);
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    box-shadow: inset 0 -1px 0 var(--color-border);
   }
 
   th:nth-child(3),
@@ -312,12 +336,6 @@ const EmptyState = styled.div`
   }
 `;
 
-const LoadingState = styled.div`
-  padding: var(--space-12);
-  color: var(--color-text-muted);
-  text-align: center;
-`;
-
 const currentMonth = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -348,10 +366,12 @@ const sortPlans = (plans: Plan[], categories: Map<string, Category>) =>
 
 export function PlansPage() {
   const { formatAmount } = useCurrency();
+  const toast = useToast();
   const [month, setMonth] = useState(currentMonth);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [lockedMonths, setLockedMonths] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -380,14 +400,16 @@ export function PlansPage() {
         month,
         ...(categoryFilter ? { categoryId: categoryFilter } : {}),
       }),
+      periodLockService.getAll(),
     ])
-      .then(([categoryResult, planResult]) => {
+      .then(([categoryResult, planResult, lockResult]) => {
         if (!isActive) return;
         setCategories(categoryResult);
         const map = new Map(
           categoryResult.map((category) => [category.id, category]),
         );
         setPlans(sortPlans(planResult, map));
+        setLockedMonths(new Set(lockResult.map((lock) => lock.month)));
       })
       .catch((error) => {
         if (isActive) {
@@ -404,6 +426,8 @@ export function PlansPage() {
   }, [categoryFilter, month]);
 
   const total = plans.reduce((sum, plan) => sum + plan.amount, 0);
+  const isSelectedMonthLocked = lockedMonths.has(month);
+  const isNewMonthLocked = lockedMonths.has(newMonth);
 
   const openCreateForm = () => {
     setIsCreateOpen(true);
@@ -452,6 +476,7 @@ export function PlansPage() {
       }
       setIsCreateOpen(false);
       setNewAmount("");
+      toast.success("Plan created successfully.");
     } catch (error) {
       setFormError(getApiErrorMessage(error, "Unable to create plan."));
     } finally {
@@ -485,6 +510,7 @@ export function PlansPage() {
         current.map((plan) => (plan.id === planId ? updatedPlan : plan)),
       );
       setEditingId(null);
+      toast.success("Plan updated successfully.");
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to update plan."));
     } finally {
@@ -503,6 +529,7 @@ export function PlansPage() {
         current.filter((plan) => plan.id !== planToDelete.id),
       );
       setPlanToDelete(null);
+      toast.success("Plan deleted successfully.");
     } catch (error) {
       setPageError(getApiErrorMessage(error, "Unable to delete plan."));
       setPlanToDelete(null);
@@ -524,6 +551,12 @@ export function PlansPage() {
       />
 
       {pageError ? <ErrorBanner role="alert">{pageError}</ErrorBanner> : null}
+
+      {isSelectedMonthLocked ? (
+        <LockedNotice role="status">
+          {formatMonth(month)} is locked. Plans for this month are read-only.
+        </LockedNotice>
+      ) : null}
 
       {isCreateOpen ? (
         <FormCard>
@@ -561,6 +594,9 @@ export function PlansPage() {
                   setFormError("");
                 }}
               />
+              {isNewMonthLocked ? (
+                <FieldMessage $error>{formatMonth(newMonth)} is locked and cannot be modified</FieldMessage>
+              ) : null}
             </Field>
 
             <Field>
@@ -587,7 +623,7 @@ export function PlansPage() {
             </Field>
 
             <SubmitArea>
-              <Button type="submit" disabled={isCreating || categories.length === 0}>
+              <Button type="submit" disabled={isCreating || categories.length === 0 || isNewMonthLocked}>
                 {isCreating ? "Creating..." : "Create plan"}
               </Button>
             </SubmitArea>
@@ -643,7 +679,26 @@ export function PlansPage() {
         </TableHeader>
 
         {isLoading ? (
-          <LoadingState>Loading plans...</LoadingState>
+          <SkeletonCard>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+            <SkeletonRow>
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+              <SkeletonPulse $height="0.85rem" />
+            </SkeletonRow>
+          </SkeletonCard>
         ) : plans.length === 0 ? (
           <EmptyState>
             <h3>No plans for this month</h3>
@@ -708,11 +763,17 @@ export function PlansPage() {
                       <td>
                         {editingId !== plan.id ? (
                           <RowActions>
-                            <TextButton onClick={() => startEditing(plan)}>
+                            <TextButton
+                              disabled={lockedMonths.has(plan.month)}
+                              title={lockedMonths.has(plan.month) ? `${formatMonth(plan.month)} is locked` : undefined}
+                              onClick={() => startEditing(plan)}
+                            >
                               Edit
                             </TextButton>
                             <TextButton
                               $danger
+                              disabled={lockedMonths.has(plan.month)}
+                              title={lockedMonths.has(plan.month) ? `${formatMonth(plan.month)} is locked` : undefined}
                               onClick={() => setPlanToDelete(plan)}
                             >
                               Delete

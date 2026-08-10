@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { AssistantChatLauncher } from "../assistant/AssistantChatLauncher";
 import { AppIcon } from "../common/AppIcon";
 import { Button } from "../common/Button";
+import { PageTransition } from "./PageTransition";
 import { COUNTRY_CURRENCIES } from "../../constants/currencies";
 import { useAuth } from "../../hooks/useAuth";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
@@ -447,7 +448,9 @@ export function DashboardLayout() {
 
       <Main $lockViewport={lockViewport}>
         <Content $lockViewport={lockViewport}>
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </Content>
       </Main>
 

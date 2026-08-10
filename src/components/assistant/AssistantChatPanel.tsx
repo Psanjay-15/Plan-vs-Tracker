@@ -11,6 +11,7 @@ import type {
   PendingAssistantAction,
 } from "../../types/assistant";
 import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
+import { useToast } from "../../hooks/useToast";
 
 const Shell = styled.section<{ $compact?: boolean }>`
   display: grid;
@@ -210,6 +211,7 @@ export function AssistantChatPanel({
   pendingAction,
   onPendingActionChange,
 }: AssistantChatPanelProps) {
+  const toast = useToast();
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
@@ -277,6 +279,7 @@ export function AssistantChatPanel({
         makeMessage("assistant", response.message),
       ]);
       onPendingActionChange(null);
+      toast.success(response.message);
     } catch (requestError) {
       setError(
         getApiErrorMessage(requestError, "The change could not be saved."),
