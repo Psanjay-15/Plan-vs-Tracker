@@ -1,4 +1,5 @@
 type IconName =
+  | "assistant"
   | "actuals"
   | "brand"
   | "categories"
@@ -21,6 +22,13 @@ interface AppIconProps {
 export function AppIcon({ name, size = 18 }: AppIconProps) {
   const content = (() => {
     switch (name) {
+      case "assistant":
+        return (
+          <>
+            <path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+            <path d="M8 9h8M8 13h5" />
+          </>
+        );
       case "brand":
         return (
           <>

@@ -10,6 +10,7 @@ import { PlansPage } from "../pages/PlansPage";
 import { ReportPage } from "../pages/ReportPage";
 import { SignupPage } from "../pages/SignupPage";
 import { WelcomePage } from "../pages/WelcomePage";
+import { AssistantPage } from "../pages/AssistantPage";
 import { PublicOnlyRoute } from "./PublicOnlyRoute";
 import { ProtectedRoute } from "./ProtectedRoute";
 
@@ -47,6 +48,7 @@ export function AppRoutes() {
         <Route path="report" element={<ReportPage />} />
         <Route path="period-locks" element={<PeriodLocksPage />} />
         <Route path="categories" element={<CategoriesPage />} />
+        <Route path="assistant" element={<AssistantPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

@@ -24,6 +24,11 @@ const ErrorBanner = styled.div`
   font-size: var(--font-size-sm);
 `;
 
+const ReportShell = styled.div`
+  display: block;
+  width: 100%;
+`;
+
 const FilterCard = styled(Card)`
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -112,13 +117,11 @@ const SummaryGrid = styled.div`
 
 const SummaryCard = styled(Card)`
   display: grid;
-  min-height: 126px;
-  align-content: space-between;
+  align-content: start;
   gap: var(--space-3);
   padding: var(--space-5);
 
   @media (max-width: 520px) {
-    min-height: 118px;
     padding: var(--space-4);
   }
 
@@ -141,6 +144,7 @@ const SummaryCard = styled(Card)`
     margin-top: var(--space-2);
     color: var(--color-text-subtle);
     font-size: var(--font-size-xs);
+    line-height: 1.4;
   }
 `;
 
@@ -612,7 +616,7 @@ export function ReportPage() {
   );
 
   return (
-    <>
+    <ReportShell>
       <PageHeader
         title="Plan vs Actual"
         description="Compare spending targets with real results and quickly identify over- or under-spending."
@@ -907,6 +911,6 @@ export function ReportPage() {
           <p>Add a Plan or Actual entry, or choose another month.</p>
         </EmptyState>
       ) : null}
-    </>
+    </ReportShell>
   );
 }

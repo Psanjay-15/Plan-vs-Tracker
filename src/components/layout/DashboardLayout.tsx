@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { AssistantChatLauncher } from "../assistant/AssistantChatLauncher";
 import { AppIcon } from "../common/AppIcon";
 import { Button } from "../common/Button";
 import { COUNTRY_CURRENCIES } from "../../constants/currencies";
@@ -244,11 +245,28 @@ const UserEmail = styled.p`
   white-space: nowrap;
 `;
 
-const Main = styled.div`
+const Main = styled.div<{ $lockViewport: boolean }>`
   min-width: 0;
   padding: var(--space-8);
 
+  ${({ $lockViewport }) =>
+    $lockViewport
+      ? `
+    display: flex;
+    height: 100vh;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  `
+      : `
+    overflow: visible;
+  `}
+
   @media (max-width: 860px) {
+    display: block;
+    height: auto;
+    min-height: auto;
+    overflow: visible;
     padding: var(--space-6);
   }
 
@@ -257,10 +275,25 @@ const Main = styled.div`
   }
 `;
 
-const Content = styled.div`
+const Content = styled.div<{ $lockViewport: boolean }>`
   width: min(100%, 1280px);
   min-width: 0;
   margin-inline: auto;
+
+  ${({ $lockViewport }) =>
+    $lockViewport
+      ? `
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+
+    > * {
+      min-height: 0;
+      flex: 1;
+    }
+  `
+      : ""}
 `;
 
 const navigationItems = [
@@ -295,14 +328,23 @@ const navigationItems = [
     icon: "categories" as const,
     end: false,
   },
+  {
+    label: "Ask your data",
+    path: "/dashboard/assistant",
+    icon: "assistant" as const,
+    end: false,
+  },
 ];
 
 export function DashboardLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout, updatePreferences, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdatingCurrency, setIsUpdatingCurrency] = useState(false);
   const [preferenceError, setPreferenceError] = useState("");
+  const lockViewport =
+    location.pathname === "/dashboard" || location.pathname === "/dashboard/";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -403,11 +445,13 @@ export function DashboardLayout() {
         </UserArea>
       </Sidebar>
 
-      <Main>
-        <Content>
+      <Main $lockViewport={lockViewport}>
+        <Content $lockViewport={lockViewport}>
           <Outlet />
         </Content>
       </Main>
+
+      <AssistantChatLauncher />
     </Layout>
   );
 }
