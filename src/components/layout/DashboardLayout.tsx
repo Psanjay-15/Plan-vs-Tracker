@@ -3,7 +3,9 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { AppIcon } from "../common/AppIcon";
 import { Button } from "../common/Button";
+import { COUNTRY_CURRENCIES } from "../../constants/currencies";
 import { useAuth } from "../../hooks/useAuth";
+import { getApiErrorMessage } from "../../utils/getApiErrorMessage";
 
 const Layout = styled.div`
   display: grid;
@@ -129,6 +131,59 @@ const UserArea = styled.div`
   border-top: 1px solid var(--color-border);
 
   @media (max-width: 860px) {
+    display: grid;
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--space-3);
+  }
+`;
+
+const PreferenceField = styled.div`
+  display: grid;
+  gap: var(--space-2);
+
+  label {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 860px) {
+    min-width: 0;
+  }
+`;
+
+const CountrySelect = styled.select`
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.55rem 2rem 0.55rem 0.7rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  outline: none;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+
+  &:focus {
+    border-color: var(--color-primary-500);
+    box-shadow: var(--focus-ring);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+  }
+`;
+
+const CurrencyHint = styled.p`
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+
+  @media (max-width: 860px) {
     display: none;
   }
 `;
@@ -139,6 +194,24 @@ const UserDetails = styled.div`
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
+
+  @media (max-width: 860px) {
+    display: none;
+  }
+`;
+
+const MobileLogout = styled.div`
+  display: none;
+
+  @media (max-width: 860px) {
+    display: block;
+  }
+`;
+
+const DesktopLogout = styled.div`
+  @media (max-width: 860px) {
+    display: none;
+  }
 `;
 
 const UserAvatar = styled.div`
@@ -226,8 +299,10 @@ const navigationItems = [
 
 export function DashboardLayout() {
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout, updatePreferences, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isUpdatingCurrency, setIsUpdatingCurrency] = useState(false);
+  const [preferenceError, setPreferenceError] = useState("");
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -236,6 +311,22 @@ export function DashboardLayout() {
       navigate("/login", { replace: true });
     } finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleCountryChange = async (countryCode: string) => {
+    if (!user || countryCode === user.countryCode) return;
+
+    try {
+      setIsUpdatingCurrency(true);
+      setPreferenceError("");
+      await updatePreferences({ countryCode });
+    } catch (error) {
+      setPreferenceError(
+        getApiErrorMessage(error, "Unable to update currency preference."),
+      );
+    } finally {
+      setIsUpdatingCurrency(false);
     }
   };
 
@@ -259,6 +350,28 @@ export function DashboardLayout() {
         </Navigation>
 
         <UserArea>
+          <PreferenceField>
+            <label htmlFor="country-currency">Country / currency</label>
+            <CountrySelect
+              id="country-currency"
+              value={user?.countryCode ?? "US"}
+              disabled={isUpdatingCurrency || isLoggingOut}
+              onChange={(event) => void handleCountryChange(event.target.value)}
+            >
+              {COUNTRY_CURRENCIES.map((country) => (
+                <option key={country.code} value={country.code}>
+                  {country.name} ({country.currency})
+                </option>
+              ))}
+            </CountrySelect>
+            <CurrencyHint>
+              {isUpdatingCurrency
+                ? "Updating..."
+                : preferenceError ||
+                  `${user?.currencyName ?? "US Dollar"} · ${user?.currency ?? "USD"}`}
+            </CurrencyHint>
+          </PreferenceField>
+
           <UserDetails>
             <UserAvatar><AppIcon name="user" size={17} /></UserAvatar>
             <div>
@@ -267,14 +380,26 @@ export function DashboardLayout() {
             </div>
           </UserDetails>
 
-          <Button
-            variant="secondary"
-            fullWidth
-            disabled={isLoggingOut}
-            onClick={() => void handleLogout()}
-          >
-            {isLoggingOut ? "Signing out..." : "Sign out"}
-          </Button>
+          <DesktopLogout>
+            <Button
+              variant="secondary"
+              fullWidth
+              disabled={isLoggingOut}
+              onClick={() => void handleLogout()}
+            >
+              {isLoggingOut ? "Signing out..." : "Sign out"}
+            </Button>
+          </DesktopLogout>
+
+          <MobileLogout>
+            <Button
+              variant="secondary"
+              disabled={isLoggingOut}
+              onClick={() => void handleLogout()}
+            >
+              {isLoggingOut ? "..." : "Sign out"}
+            </Button>
+          </MobileLogout>
         </UserArea>
       </Sidebar>
 

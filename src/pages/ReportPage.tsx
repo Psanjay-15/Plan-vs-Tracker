@@ -4,6 +4,7 @@ import { AppIcon } from "../components/common/AppIcon";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { PageHeader } from "../components/common/PageHeader";
+import { useCurrency } from "../hooks/useCurrency";
 import { categoryService } from "../services/category.service";
 import { reportService } from "../services/report.service";
 import type { Category } from "../types/category";
@@ -301,17 +302,6 @@ const formatMonth = (month: string) => {
   }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
 };
 
-const formatAmount = (minorUnits: number) =>
-  new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(minorUnits / 100);
-
-const formatSignedAmount = (minorUnits: number) => {
-  if (minorUnits === 0) return "0.00";
-  return `${minorUnits > 0 ? "+" : "−"}${formatAmount(Math.abs(minorUnits))}`;
-};
-
 const formatPercentage = (value: number | null) => {
   if (value === null) return "—";
   if (value === 0) return "0.00%";
@@ -319,6 +309,7 @@ const formatPercentage = (value: number | null) => {
 };
 
 export function ReportPage() {
+  const { formatAmount, formatSignedAmount } = useCurrency();
   const [startMonth, setStartMonth] = useState(currentMonth);
   const [endMonth, setEndMonth] = useState(currentMonth);
   const [categoryId, setCategoryId] = useState("");

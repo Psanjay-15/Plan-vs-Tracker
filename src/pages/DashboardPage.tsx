@@ -5,6 +5,7 @@ import { AppIcon } from "../components/common/AppIcon";
 import { Card } from "../components/common/Card";
 import { PageHeader } from "../components/common/PageHeader";
 import { useAuth } from "../hooks/useAuth";
+import { useCurrency } from "../hooks/useCurrency";
 import { categoryService } from "../services/category.service";
 import { periodLockService } from "../services/period-lock.service";
 import { reportService } from "../services/report.service";
@@ -467,17 +468,6 @@ const formatMonth = (month: string) => {
   }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
 };
 
-const formatAmount = (minorUnits: number) =>
-  new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(minorUnits / 100);
-
-const formatSignedAmount = (minorUnits: number) => {
-  if (minorUnits === 0) return "0.00";
-  return `${minorUnits > 0 ? "+" : "−"}${formatAmount(Math.abs(minorUnits))}`;
-};
-
 const getSortedRows = (rows: ReportRow[]) =>
   [...rows].sort(
     (first, second) =>
@@ -487,6 +477,7 @@ const getSortedRows = (rows: ReportRow[]) =>
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const { formatAmount, formatSignedAmount } = useCurrency();
   const [month, setMonth] = useState(currentMonth);
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [locks, setLocks] = useState<PeriodLock[]>([]);

@@ -14,6 +14,7 @@ import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { PageHeader } from "../components/common/PageHeader";
+import { useCurrency } from "../hooks/useCurrency";
 import { actualService } from "../services/actual.service";
 import { categoryService } from "../services/category.service";
 import type { Actual, ActualCsvImportError } from "../types/actual";
@@ -459,12 +460,6 @@ const formatMonth = (month: string) => {
   }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
 };
 
-const formatAmount = (minorUnits: number) =>
-  new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(minorUnits / 100);
-
 const parsePositiveAmount = (value: string) => {
   const normalized = value.trim();
   if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
@@ -478,6 +473,7 @@ const sortActuals = (actuals: Actual[]) =>
   );
 
 export function ActualsPage() {
+  const { formatAmount } = useCurrency();
   const [month, setMonth] = useState(currentMonth);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);

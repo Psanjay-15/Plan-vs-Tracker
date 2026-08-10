@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   LoginInput,
   SignupInput,
+  UpdatePreferencesInput,
   User,
 } from "../types/auth";
 
@@ -23,6 +24,11 @@ export const authService = {
 
   async getCurrentUser(): Promise<User> {
     const { data } = await api.get<AuthResponse>("/auth/me");
+    return data.user;
+  },
+
+  async updatePreferences(input: UpdatePreferencesInput): Promise<User> {
+    const { data } = await api.patch<AuthResponse>("/auth/preferences", input);
     return data.user;
   },
 };

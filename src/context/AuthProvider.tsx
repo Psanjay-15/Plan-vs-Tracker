@@ -6,7 +6,12 @@ import {
   type PropsWithChildren,
 } from "react";
 import { authService } from "../services/auth.service";
-import type { LoginInput, SignupInput, User } from "../types/auth";
+import type {
+  LoginInput,
+  SignupInput,
+  UpdatePreferencesInput,
+  User,
+} from "../types/auth";
 import { AuthContext, type AuthContextValue } from "./auth-context";
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -59,6 +64,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setUser(null);
   }, []);
 
+  const updatePreferences = useCallback(
+    async (input: UpdatePreferencesInput) => {
+      const updatedUser = await authService.updatePreferences(input);
+      setUser(updatedUser);
+    },
+    [],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -68,8 +81,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signup,
       logout,
       refreshUser,
+      updatePreferences,
     }),
-    [isLoading, login, logout, refreshUser, signup, user],
+    [
+      isLoading,
+      login,
+      logout,
+      refreshUser,
+      signup,
+      updatePreferences,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
