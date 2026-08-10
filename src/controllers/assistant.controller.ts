@@ -3,27 +3,22 @@ import Actual from "../models/Actual";
 import Category from "../models/Category";
 import PeriodLock from "../models/PeriodLock";
 import Plan from "../models/Plan";
+import { askAssistant } from "../services/assistant.service";
 import {
-  askAssistant,
-  type AssistantHistoryMessage,
-} from "../services/assistant.service";
+  appendChatMessage,
+  createChatSession,
+  deleteChatSession,
+  getOwnedSession,
+  getRecentHistory,
+  listChatSessions,
+  listSessionMessages,
+  messageResponse,
+  sessionResponse,
+  titleFromMessage,
+} from "../services/chat-session.service";
 import { isMonthLocked } from "../services/periodLock.service";
 import { verifyActionToken } from "../utils/actionToken";
 import { formatMonth } from "../utils/month";
-
-const validHistory = (value: unknown): value is AssistantHistoryMessage[] =>
-  Array.isArray(value) &&
-  value.length <= 20 &&
-  value.every(
-    (item) =>
-      typeof item === "object" &&
-      item !== null &&
-      "role" in item &&
-      (item.role === "user" || item.role === "assistant") &&
-      "content" in item &&
-      typeof item.content === "string" &&
-      item.content.length <= 2000,
-  );
 
 const isDuplicateKeyError = (error: unknown) =>
   typeof error === "object" &&
@@ -31,8 +26,91 @@ const isDuplicateKeyError = (error: unknown) =>
   "code" in error &&
   (error as { code?: number }).code === 11000;
 
+export const listSessions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const sessions = await listChatSessions(req.userId!);
+    res.status(200).json({
+      success: true,
+      sessions: sessions.map(sessionResponse),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createSession = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const session = await createChatSession(req.userId!);
+    res.status(201).json({
+      success: true,
+      session: sessionResponse(session),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSession = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const sessionId = String(req.params.sessionId);
+    const session = await getOwnedSession(req.userId!, sessionId);
+    if (!session) {
+      res.status(404).json({
+        success: false,
+        message: "Chat session not found",
+      });
+      return;
+    }
+
+    const messages = await listSessionMessages(String(session._id));
+    res.status(200).json({
+      success: true,
+      session: sessionResponse(session),
+      messages: messages.map(messageResponse),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeSession = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const deleted = await deleteChatSession(
+      req.userId!,
+      String(req.params.sessionId),
+    );
+    if (!deleted) {
+      res.status(404).json({
+        success: false,
+        message: "Chat session not found",
+      });
+      return;
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const chat = async (req: Request, res: Response, next: NextFunction) => {
-  const { message, history = [] } = req.body as Record<string, unknown>;
+  const { message, sessionId } = req.body as Record<string, unknown>;
 
   if (
     typeof message !== "string" ||
@@ -46,17 +124,75 @@ export const chat = async (req: Request, res: Response, next: NextFunction) => {
     return;
   }
 
-  if (!validHistory(history)) {
+  if (
+    sessionId !== undefined &&
+    sessionId !== null &&
+    typeof sessionId !== "string"
+  ) {
     res.status(400).json({
       success: false,
-      message: "Invalid conversation history",
+      message: "Invalid session id",
     });
     return;
   }
 
   try {
+    let session =
+      typeof sessionId === "string" && sessionId
+        ? await getOwnedSession(req.userId!, sessionId)
+        : null;
+
+    if (typeof sessionId === "string" && sessionId && !session) {
+      res.status(404).json({
+        success: false,
+        message: "Chat session not found",
+      });
+      return;
+    }
+
+    if (!session) {
+      session = await createChatSession(
+        req.userId!,
+        titleFromMessage(message.trim()),
+      );
+    }
+
+    const history = await getRecentHistory(String(session._id));
     const result = await askAssistant(req.userId!, message.trim(), history);
-    res.status(200).json({ success: true, ...result });
+    const charts = "charts" in result ? result.charts : undefined;
+
+    const userMessage = await appendChatMessage({
+      sessionId: String(session._id),
+      userId: req.userId!,
+      role: "user",
+      content: message.trim(),
+    });
+
+    const assistantMessage = await appendChatMessage({
+      sessionId: String(session._id),
+      userId: req.userId!,
+      role: "assistant",
+      content: result.message,
+      charts,
+    });
+
+    if (session.title === "New chat") {
+      session.title = titleFromMessage(message.trim());
+    }
+
+    session.lastMessageAt = assistantMessage.createdAt;
+    await session.save();
+
+    res.status(200).json({
+      success: true,
+      sessionId: String(session._id),
+      session: sessionResponse(session),
+      userMessage: messageResponse(userMessage),
+      assistantMessage: messageResponse(assistantMessage),
+      message: result.message,
+      pendingAction: "pendingAction" in result ? result.pendingAction : undefined,
+      charts,
+    });
   } catch (error) {
     next(error);
   }
@@ -75,6 +211,9 @@ export const confirmAction = async (
     return;
   }
 
+  const sessionId =
+    typeof req.body?.sessionId === "string" ? req.body.sessionId : undefined;
+
   try {
     const action = verifyActionToken(req.body.token);
 
@@ -86,6 +225,31 @@ export const confirmAction = async (
       return;
     }
 
+    const respond = async (
+      status: number,
+      payload: { success: true; message: string } & Record<string, unknown>,
+    ) => {
+      if (sessionId) {
+        const session = await getOwnedSession(req.userId!, sessionId);
+        if (session) {
+          const assistantMessage = await appendChatMessage({
+            sessionId,
+            userId: req.userId!,
+            role: "assistant",
+            content: payload.message,
+          });
+          res.status(status).json({
+            ...payload,
+            sessionId,
+            assistantMessage: messageResponse(assistantMessage),
+          });
+          return;
+        }
+      }
+
+      res.status(status).json(payload);
+    };
+
     switch (action.type) {
       case "create_category": {
         const category = await Category.create({
@@ -94,7 +258,7 @@ export const confirmAction = async (
           normalizedName: action.name.toLocaleLowerCase("en-US"),
         });
 
-        res.status(201).json({
+        await respond(201, {
           success: true,
           message: `Created category "${category.name}".`,
           category: {
@@ -122,7 +286,7 @@ export const confirmAction = async (
         category.name = action.name;
         await category.save();
 
-        res.status(200).json({
+        await respond(200, {
           success: true,
           message: `Renamed category to "${category.name}".`,
           category: {
@@ -163,7 +327,7 @@ export const confirmAction = async (
 
         await category.deleteOne();
 
-        res.status(200).json({
+        await respond(200, {
           success: true,
           message: `Deleted category "${action.categoryName}".`,
         });
@@ -208,7 +372,7 @@ export const confirmAction = async (
           plan.amount = action.amount;
           await plan.save();
 
-          res.status(200).json({
+          await respond(200, {
             success: true,
             message: `Updated ${action.categoryName} plan for ${action.month}.`,
             plan: {
@@ -228,7 +392,7 @@ export const confirmAction = async (
           amount: action.amount,
         });
 
-        res.status(201).json({
+        await respond(201, {
           success: true,
           message: `Created ${action.categoryName} plan for ${action.month}.`,
           plan: {
@@ -265,7 +429,7 @@ export const confirmAction = async (
 
         await plan.deleteOne();
 
-        res.status(200).json({
+        await respond(200, {
           success: true,
           message: `Deleted ${action.categoryName} plan for ${action.month}.`,
         });
@@ -301,7 +465,7 @@ export const confirmAction = async (
           ...(action.note ? { note: action.note } : {}),
         });
 
-        res.status(201).json({
+        await respond(201, {
           success: true,
           message: `Recorded ${action.categoryName} spending successfully.`,
           actual: {
@@ -341,7 +505,7 @@ export const confirmAction = async (
         actual.note = action.note || undefined;
         await actual.save();
 
-        res.status(200).json({
+        await respond(200, {
           success: true,
           message: `Updated ${action.categoryName} spending for ${action.month}.`,
           actual: {
@@ -379,7 +543,7 @@ export const confirmAction = async (
 
         await actual.deleteOne();
 
-        res.status(200).json({
+        await respond(200, {
           success: true,
           message: `Deleted ${action.categoryName} spending for ${action.month}.`,
         });
@@ -393,7 +557,7 @@ export const confirmAction = async (
         });
 
         if (existing) {
-          res.status(200).json({
+          await respond(200, {
             success: true,
             message: `${formatMonth(action.month)} is already locked.`,
             lock: {
@@ -410,7 +574,7 @@ export const confirmAction = async (
           month: action.month,
         });
 
-        res.status(201).json({
+        await respond(201, {
           success: true,
           message: `Locked ${formatMonth(action.month)}.`,
           lock: {
