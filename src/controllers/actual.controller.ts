@@ -3,6 +3,10 @@ import { Types } from "mongoose";
 import Actual from "../models/Actual";
 import Category from "../models/Category";
 import PeriodLock from "../models/PeriodLock";
+import {
+  evaluateBudgetAlerts,
+  evaluateBudgetAlertsForPairs,
+} from "../services/budget-alert.service";
 import { isMonthLocked } from "../services/periodLock.service";
 import { mapCsvHeaders, parseCsv, stringifyCsv } from "../utils/csv";
 import { formatMonth, isValidMonth } from "../utils/month";
@@ -112,6 +116,8 @@ export const createActual = async (
         ? { note: note.trim() }
         : {}),
     });
+
+    void evaluateBudgetAlerts(req.userId!, month as string, categoryId);
 
     res.status(201).json({
       success: true,
@@ -271,6 +277,12 @@ export const updateActual = async (
 
     await actual.save();
 
+    void evaluateBudgetAlerts(
+      req.userId!,
+      actual.month,
+      String(actual.categoryId),
+    );
+
     res.status(200).json({
       success: true,
       message: "Actual entry updated successfully",
@@ -316,6 +328,12 @@ export const deleteActual = async (
     }
 
     await actual.deleteOne();
+
+    void evaluateBudgetAlerts(
+      req.userId!,
+      actual.month,
+      String(actual.categoryId),
+    );
 
     res.status(200).json({
       success: true,
@@ -603,6 +621,14 @@ export const importActualsCsv = async (
     }
 
     const created = await Actual.insertMany(documents, { ordered: false });
+
+    void evaluateBudgetAlertsForPairs(
+      req.userId!,
+      documents.map((document) => ({
+        month: document.month,
+        categoryId: String(document.categoryId),
+      })),
+    );
 
     res.status(errors.length > 0 ? 207 : 201).json({
       success: true,

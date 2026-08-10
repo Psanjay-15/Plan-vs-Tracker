@@ -4,6 +4,7 @@ import Category from "../models/Category";
 import PeriodLock from "../models/PeriodLock";
 import Plan from "../models/Plan";
 import { askAssistant } from "../services/assistant.service";
+import { evaluateBudgetAlerts } from "../services/budget-alert.service";
 import {
   appendChatMessage,
   createChatSession,
@@ -465,6 +466,12 @@ export const confirmAction = async (
           ...(action.note ? { note: action.note } : {}),
         });
 
+        void evaluateBudgetAlerts(
+          req.userId!,
+          action.month,
+          action.categoryId,
+        );
+
         await respond(201, {
           success: true,
           message: `Recorded ${action.categoryName} spending successfully.`,
@@ -505,6 +512,12 @@ export const confirmAction = async (
         actual.note = action.note || undefined;
         await actual.save();
 
+        void evaluateBudgetAlerts(
+          req.userId!,
+          action.month,
+          action.categoryId,
+        );
+
         await respond(200, {
           success: true,
           message: `Updated ${action.categoryName} spending for ${action.month}.`,
@@ -542,6 +555,12 @@ export const confirmAction = async (
         }
 
         await actual.deleteOne();
+
+        void evaluateBudgetAlerts(
+          req.userId!,
+          action.month,
+          action.categoryId,
+        );
 
         await respond(200, {
           success: true,
