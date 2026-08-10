@@ -1,16 +1,19 @@
 import { Route, Routes } from "react-router-dom";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
+import { AccountPage } from "../pages/AccountPage";
 import { ActualsPage } from "../pages/ActualsPage";
+import { AssistantPage } from "../pages/AssistantPage";
 import { CategoriesPage } from "../pages/CategoriesPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PeriodLocksPage } from "../pages/PeriodLocksPage";
 import { PlansPage } from "../pages/PlansPage";
 import { ReportPage } from "../pages/ReportPage";
+import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import { SignupPage } from "../pages/SignupPage";
 import { WelcomePage } from "../pages/WelcomePage";
-import { AssistantPage } from "../pages/AssistantPage";
 import { PublicOnlyRoute } from "./PublicOnlyRoute";
 import { ProtectedRoute } from "./ProtectedRoute";
 
@@ -35,6 +38,22 @@ export function AppRoutes() {
         }
       />
       <Route
+        path="/forgot-password"
+        element={
+          <PublicOnlyRoute>
+            <ForgotPasswordPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <PublicOnlyRoute>
+            <ResetPasswordPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
@@ -49,6 +68,7 @@ export function AppRoutes() {
         <Route path="period-locks" element={<PeriodLocksPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="assistant" element={<AssistantPage />} />
+        <Route path="account" element={<AccountPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

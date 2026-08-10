@@ -87,6 +87,10 @@ export function LoginPage() {
           onChange={(event) => setPassword(event.target.value)}
         />
 
+        <div style={{ marginTop: "-0.35rem", textAlign: "right" }}>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </div>
+
         <Button type="submit" fullWidth disabled={isSubmitting}>
           {isSubmitting ? "Signing in..." : "Sign in"}
         </Button>

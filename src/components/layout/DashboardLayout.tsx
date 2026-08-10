@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { AssistantChatLauncher } from "../assistant/AssistantChatLauncher";
@@ -192,14 +192,65 @@ const CurrencyHint = styled.p`
 `;
 
 const UserDetails = styled.div`
+  position: relative;
   display: grid;
+  min-width: 0;
+
+  @media (max-width: 860px) {
+    grid-column: 1 / -1;
+  }
+`;
+
+const ProfileButton = styled.button<{ $open?: boolean }>`
+  display: grid;
+  width: 100%;
   min-width: 0;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
+  padding: 0.45rem 0.5rem;
+  border: 1px solid
+    ${({ $open }) =>
+      $open ? "var(--color-primary-500)" : "transparent"};
+  border-radius: var(--radius-md);
+  background: ${({ $open }) =>
+    $open ? "var(--color-primary-50)" : "transparent"};
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 
-  @media (max-width: 860px) {
-    display: none;
+  &:hover {
+    background: var(--color-primary-50);
+  }
+`;
+
+const ProfileMenu = styled.div`
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+`;
+
+const ProfileMenuItem = styled.button`
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-subtle);
+    color: var(--color-primary-700);
   }
 `;
 
@@ -345,10 +396,40 @@ export function DashboardLayout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdatingCurrency, setIsUpdatingCurrency] = useState(false);
   const [preferenceError, setPreferenceError] = useState("");
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const lockViewport =
     location.pathname === "/dashboard" ||
     location.pathname === "/dashboard/" ||
     location.pathname === "/dashboard/assistant";
+
+  useEffect(() => {
+    setIsProfileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsProfileMenuOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isProfileMenuOpen]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -419,12 +500,34 @@ export function DashboardLayout() {
             </CurrencyHint>
           </PreferenceField>
 
-          <UserDetails>
-            <UserAvatar><AppIcon name="user" size={17} /></UserAvatar>
-            <div>
-              <UserName>{user?.name}</UserName>
-              <UserEmail>{user?.email}</UserEmail>
-            </div>
+          <UserDetails ref={profileMenuRef}>
+            <ProfileButton
+              type="button"
+              $open={isProfileMenuOpen}
+              aria-haspopup="menu"
+              aria-expanded={isProfileMenuOpen}
+              onClick={() => setIsProfileMenuOpen((open) => !open)}
+            >
+              <UserAvatar><AppIcon name="user" size={17} /></UserAvatar>
+              <div>
+                <UserName>{user?.name}</UserName>
+                <UserEmail>{user?.email}</UserEmail>
+              </div>
+            </ProfileButton>
+            {isProfileMenuOpen ? (
+              <ProfileMenu role="menu" aria-label="Account menu">
+                <ProfileMenuItem
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    navigate("/dashboard/account");
+                  }}
+                >
+                  Change password
+                </ProfileMenuItem>
+              </ProfileMenu>
+            ) : null}
           </UserDetails>
 
           <DesktopLogout>

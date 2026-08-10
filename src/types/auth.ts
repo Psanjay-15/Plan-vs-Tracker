@@ -23,8 +23,27 @@ export interface UpdatePreferencesInput {
   countryCode: string;
 }
 
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+}
+
 export interface AuthResponse {
   success: boolean;
   message?: string;
   user: User;
+}
+
+export interface MessageResponse {
+  success: boolean;
+  message: string;
 }
