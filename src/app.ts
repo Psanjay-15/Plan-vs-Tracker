@@ -11,6 +11,7 @@ import categoryRoutes from "./routes/category.routes";
 import periodLockRoutes from "./routes/periodLock.routes";
 import planRoutes from "./routes/plan.routes";
 import reportRoutes from "./routes/report.routes";
+import assistantRoutes from "./routes/assistant.routes";
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api/actuals", actualRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/period-locks", periodLockRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/assistant", assistantRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
