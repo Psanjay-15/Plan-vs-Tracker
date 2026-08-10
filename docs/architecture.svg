@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title description">
+  <title id="title">Plan vs Actual Tracker architecture</title>
+  <desc id="description">A user accesses the React frontend, which sends authenticated REST requests to the Express API. The API handles authentication, categories, plans, actuals, reports, and locks, and stores data in MongoDB.</desc>
+  <defs>
+    <filter id="rough" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="1" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.1"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#342a24"/>
+    </marker>
+    <style>
+      .box { fill: #fffdf9; stroke: #342a24; stroke-width: 2; rx: 14; filter: url(#rough); }
+      .group { fill: #fbf4eb; stroke: #bf5a32; stroke-width: 2; stroke-dasharray: 8 6; rx: 18; filter: url(#rough); }
+      .line { fill: none; stroke: #342a24; stroke-width: 2; marker-end: url(#arrow); filter: url(#rough); }
+      .title { font: 700 18px ui-sans-serif, system-ui, sans-serif; fill: #261f1b; }
+      .label { font: 600 15px ui-sans-serif, system-ui, sans-serif; fill: #342a24; }
+      .small { font: 13px ui-sans-serif, system-ui, sans-serif; fill: #675b52; }
+      .accent { fill: #bf5a32; }
+    </style>
+  </defs>
+
+  <rect width="960" height="560" fill="#fffaf4"/>
+  <text x="480" y="38" text-anchor="middle" class="title">Plan vs Actual Tracker</text>
+  <text x="480" y="60" text-anchor="middle" class="small">Simple request and data flow</text>
+
+  <rect x="46" y="222" width="132" height="88" class="box"/>
+  <circle cx="112" cy="247" r="11" fill="none" stroke="#bf5a32" stroke-width="2"/>
+  <path d="M91 284 C94 263 130 263 133 284" fill="none" stroke="#bf5a32" stroke-width="2"/>
+  <text x="112" y="302" text-anchor="middle" class="label">User</text>
+
+  <rect x="240" y="174" width="190" height="184" class="box"/>
+  <text x="335" y="212" text-anchor="middle" class="title">React frontend</text>
+  <text x="335" y="240" text-anchor="middle" class="small">Dashboard and reports</text>
+  <text x="335" y="264" text-anchor="middle" class="small">Plans and actuals</text>
+  <text x="335" y="288" text-anchor="middle" class="small">Categories and locks</text>
+  <rect x="276" y="310" width="118" height="26" rx="13" fill="#f7ded0"/>
+  <text x="335" y="328" text-anchor="middle" class="small">TypeScript + Vite</text>
+
+  <rect x="505" y="88" width="286" height="356" class="group"/>
+  <text x="648" y="122" text-anchor="middle" class="title">Express API</text>
+  <text x="648" y="145" text-anchor="middle" class="small">Authentication and business rules</text>
+
+  <rect x="536" y="168" width="104" height="64" class="box"/>
+  <text x="588" y="196" text-anchor="middle" class="label">Auth</text>
+  <text x="588" y="216" text-anchor="middle" class="small">User access</text>
+
+  <rect x="657" y="168" width="104" height="64" class="box"/>
+  <text x="709" y="196" text-anchor="middle" class="label">Categories</text>
+  <text x="709" y="216" text-anchor="middle" class="small">Ownership</text>
+
+  <rect x="536" y="250" width="104" height="64" class="box"/>
+  <text x="588" y="278" text-anchor="middle" class="label">Plans</text>
+  <text x="588" y="298" text-anchor="middle" class="small">Monthly targets</text>
+
+  <rect x="657" y="250" width="104" height="64" class="box"/>
+  <text x="709" y="278" text-anchor="middle" class="label">Actuals</text>
+  <text x="709" y="298" text-anchor="middle" class="small">Spending entries</text>
+
+  <rect x="536" y="332" width="104" height="64" class="box"/>
+  <text x="588" y="360" text-anchor="middle" class="label">Reports</text>
+  <text x="588" y="380" text-anchor="middle" class="small">Aggregation</text>
+
+  <rect x="657" y="332" width="104" height="64" class="box"/>
+  <text x="709" y="360" text-anchor="middle" class="label">Locks</text>
+  <text x="709" y="380" text-anchor="middle" class="small">Write protection</text>
+
+  <path d="M178 266 C198 264 218 264 240 266" class="line"/>
+  <text x="208" y="248" text-anchor="middle" class="small">Browser</text>
+
+  <path d="M430 266 C455 262 479 262 505 266" class="line"/>
+
+  <rect x="834" y="208" width="92" height="116" class="box"/>
+  <ellipse cx="880" cy="235" rx="28" ry="10" fill="#f7ded0" stroke="#342a24" stroke-width="2"/>
+  <path d="M852 235 V276 C852 289 908 289 908 276 V235" fill="#f7ded0" stroke="#342a24" stroke-width="2"/>
+  <path d="M852 255 C852 268 908 268 908 255" fill="none" stroke="#342a24" stroke-width="2"/>
+  <text x="880" y="309" text-anchor="middle" class="label">MongoDB</text>
+
+  <path d="M791 266 C807 264 820 264 834 266" class="line"/>
+  <text x="812" y="246" text-anchor="middle" class="small">Mongoose</text>
+
+  <path d="M334 388 C420 486 689 495 811 326" class="line"/>
+  <text x="532" y="494" text-anchor="middle" class="small">Responses contain only the signed-in user's data</text>
+
+  <circle cx="67" cy="519" r="5" class="accent"/>
+  <text x="82" y="524" class="small">Validation, ownership, and period-lock checks happen before database writes.</text>
+</svg>
