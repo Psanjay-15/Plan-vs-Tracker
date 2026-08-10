@@ -2,10 +2,8 @@ import { api } from "./api";
 import type {
   AuthResponse,
   ChangePasswordInput,
-  ForgotPasswordInput,
   LoginInput,
   MessageResponse,
-  ResetPasswordInput,
   SignupInput,
   UpdatePreferencesInput,
   User,
@@ -39,18 +37,5 @@ export const authService = {
   async changePassword(input: ChangePasswordInput): Promise<string> {
     const { data } = await api.patch<MessageResponse>("/auth/password", input);
     return data.message;
-  },
-
-  async forgotPassword(input: ForgotPasswordInput): Promise<string> {
-    const { data } = await api.post<MessageResponse>(
-      "/auth/forgot-password",
-      input,
-    );
-    return data.message;
-  },
-
-  async resetPassword(input: ResetPasswordInput): Promise<User> {
-    const { data } = await api.post<AuthResponse>("/auth/reset-password", input);
-    return data.user;
   },
 };

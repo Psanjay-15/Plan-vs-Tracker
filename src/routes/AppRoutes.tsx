@@ -5,13 +5,11 @@ import { ActualsPage } from "../pages/ActualsPage";
 import { AssistantPage } from "../pages/AssistantPage";
 import { CategoriesPage } from "../pages/CategoriesPage";
 import { DashboardPage } from "../pages/DashboardPage";
-import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PeriodLocksPage } from "../pages/PeriodLocksPage";
 import { PlansPage } from "../pages/PlansPage";
 import { ReportPage } from "../pages/ReportPage";
-import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import { SignupPage } from "../pages/SignupPage";
 import { WelcomePage } from "../pages/WelcomePage";
 import { PublicOnlyRoute } from "./PublicOnlyRoute";
@@ -34,22 +32,6 @@ export function AppRoutes() {
         element={
           <PublicOnlyRoute>
             <SignupPage />
-          </PublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/forgot-password"
-        element={
-          <PublicOnlyRoute>
-            <ForgotPasswordPage />
-          </PublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/reset-password"
-        element={
-          <PublicOnlyRoute>
-            <ResetPasswordPage />
           </PublicOnlyRoute>
         }
       />

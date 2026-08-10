@@ -28,15 +28,6 @@ export interface ChangePasswordInput {
   newPassword: string;
 }
 
-export interface ForgotPasswordInput {
-  email: string;
-}
-
-export interface ResetPasswordInput {
-  token: string;
-  newPassword: string;
-}
-
 export interface AuthResponse {
   success: boolean;
   message?: string;
