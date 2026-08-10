@@ -8,6 +8,7 @@ export interface IBudgetAlert {
   /** Category ObjectId string, or "__total__" for month-wide plan. */
   categoryKey: string;
   lastLevel: BudgetAlertLevel;
+  lastNotifiedActual: number;
   sentAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +34,11 @@ const budgetAlertSchema = new Schema<IBudgetAlert>(
       type: String,
       enum: ["approaching", "exceeded"],
       required: true,
+    },
+    lastNotifiedActual: {
+      type: Number,
+      required: true,
+      default: 0,
     },
     sentAt: {
       type: Date,

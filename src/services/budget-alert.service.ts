@@ -142,7 +142,14 @@ const maybeSendAlert = async (input: {
     categoryKey: input.categoryKey,
   });
 
-  if (existing && levelRank[level] <= levelRank[existing.lastLevel]) {
+  const sameOrLowerLevel =
+    existing && levelRank[level] <= levelRank[existing.lastLevel];
+  const actualIncreased =
+    existing &&
+    typeof existing.lastNotifiedActual === "number" &&
+    input.actual > existing.lastNotifiedActual;
+
+  if (sameOrLowerLevel && !actualIncreased) {
     return;
   }
 
@@ -175,6 +182,7 @@ const maybeSendAlert = async (input: {
     {
       $set: {
         lastLevel: level,
+        lastNotifiedActual: input.actual,
         sentAt: new Date(),
       },
     },
